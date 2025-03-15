@@ -3,13 +3,12 @@ project(fireplace C)
 
 set(CMAKE_C_STANDARD 11)
 
-# TODO: Split to another cmake file?
-find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS})
+# Include include directory (what a tongue-twister)
+add_subdirectory(include)
 
-# Add source files
-file(GLOB_RECURSE SRCS *.cpp)
-file(GLOB_RECURSE HDRS *.h)
+# Include root subdirectory CMakeLists
+add_subdirectory(emulator)
+add_subdirectory(gui)
 
-ADD_EXECUTABLE(fireplace  ${SRCS} ${HDRS})
-target_link_libraries(fireplace ${SDL2_LIBRARIES})
+# add_executable and linking is handled by emulator/core/CMakeLists.txt
+# See you there!
