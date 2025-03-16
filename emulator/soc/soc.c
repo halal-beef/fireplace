@@ -14,3 +14,46 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <unicorn/unicorn.h>
+
+#include <fireplace/soc/peripherals.h>
+#include <fireplace/soc/uart/uart.h>
+
+struct peripheral exynos990_peripherals[] = {
+	{"uart", true, 0x10540000, 0x1000, uart_init, uart_hook},
+	{"terminator", false, 0x0, 0x0, NULL, NULL}
+};
+
+int soc_peripheral_init_one(uc_engine *uc,
+			    struct peripheral *peri)
+{
+	int err = 0;
+
+	err = peri->peri_init(uc);
+
+	if(peri->hook)
+		err = uc_hook_add(uc, &peri->hh, UC_HOOK_MEM_WRITE | UC_HOOK_MEM_READ, peri->peri_hook,
+				  peri, peri->addressBase,
+				  peri->addressBase + peri->addressSize - 1);
+
+	if(err)
+		printf("Failed to initialize %s\n", peri->name);
+
+	return err;
+}
+
+int soc_peripherals_init(uc_engine *uc)
+{
+	int err = 0;
+
+	for (int i = 0; exynos990_peripherals[i].addressBase != 0x0; i++)
+	{
+		printf("Initializing peripheral %s\nhooked: %i\n",
+			exynos990_peripherals[i].name,
+			exynos990_peripherals[i].hook);
+
+		err = soc_peripheral_init_one(uc, &exynos990_peripherals[i]);
+	}
+
+	return err;
+}

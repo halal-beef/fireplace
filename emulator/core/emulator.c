@@ -14,12 +14,15 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <stdatomic.h>
 #include <stdio.h>
 
 #include <unicorn/unicorn.h>
 
+#include <fireplace/core/emulator.h>
 #include <fireplace/core/macros.h>
 #include <fireplace/soc/memmap.h>
+#include <fireplace/soc/soc.h>
 
 #define INT_BIN_PATH "../../../../../fireplace/lk.bin"
 #define INT_BIN_ADDR 0xF8800000
@@ -63,6 +66,8 @@ load_image(uc_engine *uc, const char *file, uint64_t base, uint64_t *last)
 	return err;
 }
 
+atomic_int sharedState;
+
 static inline int emulator_init(void)
 {
 	uc_engine *uc;
@@ -91,7 +96,19 @@ static inline int emulator_init(void)
 	err = load_image(uc, INT_BIN_PATH, INT_BIN_ADDR, &end);
 	uc_handle_error("Failed to load the initial binary to memory!", err);
 
+	/*
+	 * Basic emulator setup is done. Now, init peripherals.
+	 */
+
+	err = soc_peripherals_init(uc);
+	if (err)
+	{
+		printf("Failed to initialize peripherals!\n");
+		return -1;
+	}
+
 	printf("=== All good! Starting emulator! ===\n");
+	atomic_store(&sharedState, STATE_RUNNING);
 	if ((err = uc_emu_start(uc, INT_BIN_ADDR, end, 0, 0)) != UC_ERR_OK)
 	{
 		printf("\n------> fireplace exception: %s\n", uc_strerror(err));

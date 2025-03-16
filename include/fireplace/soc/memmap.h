@@ -14,8 +14,8 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef FIREPLACE_GUI_H
-#define FIREPLACE_GUI_H
+#ifndef FIREPLACE_MEMMAP_H
+#define FIREPLACE_MEMMAP_H
 
 enum board_memory_type {
         MEMORY_8GB,

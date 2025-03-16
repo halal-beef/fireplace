@@ -26,6 +26,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 
 // Include SDL2 first
 #include <SDL2/SDL.h>
@@ -46,6 +47,7 @@
 #include <external/nuklear_sdl_gl2.h>
 
 #include <fireplace/core/core.h>
+#include <fireplace/core/emulator.h>
 
 #define RESOLUTION_SCALE 	(0.4)
 #define WINDOW_WIDTH		(1440 * RESOLUTION_SCALE)
@@ -53,8 +55,8 @@
 
 extern pthread_mutex_t main_mutex;
 extern pthread_cond_t main_cond;
-extern bool emu_running;
-extern bool emu_ready;
+
+extern atomic_int sharedState;
 
 void gui_init(void)
 {
@@ -116,7 +118,8 @@ void *gui_core(void* dummy)
 				 NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
 		{
 			nk_layout_row_static(ctx, 30, 80, 1);
-			if(!emu_running && nk_button_label(ctx, "Start"))
+			if((atomic_load(&sharedState) != STATE_RUNNING) &&
+			   nk_button_label(ctx, "Start"))
 				create_emulator_thread();
 		}
 
