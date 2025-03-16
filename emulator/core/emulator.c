@@ -19,37 +19,93 @@
 #include <unicorn/unicorn.h>
 
 #include <fireplace/core/macros.h>
+#include <fireplace/soc/memmap.h>
 
-#define INT_BIN_PATH "~/fireplace/lk.bin"
+#define INT_BIN_PATH "../../../../../fireplace/lk.bin"
 #define INT_BIN_ADDR 0xF8800000
 #define INT_BIN_SIZE 0x00F00000
 
+/*
+ * load_image functions:
+ * Copyright (c) 2023, Ivaylo Ivanov <ivo.ivanov@null.net>
+ * https://github.com/ivoszbg/LAEmu/blob/main/main.c
+ * Modified lightly.
+*/
+
+static inline uc_err
+load_image(uc_engine *uc, const char *file, uint64_t base, uint64_t *last)
+{
+	char buf[1024];
+	FILE *f;
+	long sz;
+	uc_err err;
+	uint64_t addr = base;
+
+	printf("Opening file: %s\n", file);
+
+	if (!(f = fopen(file, "r")))
+		return UC_ERR_HANDLE;
+
+	printf("Opened fine!\n", file);
+
+	fseek(f, 0L, SEEK_END);
+	sz = ftell(f);
+	fseek(f, 0L, SEEK_SET);
+
+	while (ftell(f) != sz) {
+		size_t n = fread(buf, 1, 1024, f);
+		*last = addr;
+		if ((err = uc_mem_write(uc, addr, buf, n)) != UC_ERR_OK)
+			return err;
+		addr += n;
+	}
+
+	return err;
+}
+
 static inline int emulator_init(void)
 {
-        uc_engine *uc;
-        int err = 0;
+	uc_engine *uc;
+	uint64_t end;
+	int err = 0;
 
-        printf("== Emulator starting ==\n");
+	printf("== Emulator starting ==\n");
 
 #if defined(INT_BIN_PATH)
-        printf("Using hardcoded :[ binary path %s\n", INT_BIN_PATH);
+	printf("Using hardcoded :[ binary path %s\n", INT_BIN_PATH);
 #else
-        printf("No binary path provided! Bailing out\n");
-        return -1;
+	printf("No binary path provided! Bailing out\n");
+	return -1;
 #endif
 
-        /* We have all we need - setup unicorn context */
-        err = uc_open(UC_ARCH_ARM64, UC_MODE_ARM, &uc);
-        if (err)
-                uc_err_printf("Failed to initialize UC Engine!", err);
+	/* We have all we need - setup unicorn context */
+	err = uc_open(UC_ARCH_ARM64, UC_MODE_ARM, &uc);
+	uc_handle_error("Failed to open UC engine!", err);
 
-        /* TODO: Load binary to memory, run the emulator */
+	if (memmap_soc(uc, MEMORY_12GB))
+	{
+		printf("Failed to map memory for SoC!\n");
+		return -1;
+	}
 
-        return 0;
+	err = load_image(uc, INT_BIN_PATH, INT_BIN_ADDR, &end);
+	uc_handle_error("Failed to load the initial binary to memory!", err);
+
+	printf("=== All good! Starting emulator! ===\n");
+	if ((err = uc_emu_start(uc, INT_BIN_ADDR, end, 0, 0)) != UC_ERR_OK)
+	{
+		printf("\n------> fireplace exception: %s\n", uc_strerror(err));
+		goto cleanup;
+	}
+
+cleanup:
+	uc_close(uc);
+
+	return 0;
 }
 
 void* _emulator_init(void* dummy)
 {
-        emulator_init();
-        return dummy;
+	emulator_init();
+	return dummy;
 }

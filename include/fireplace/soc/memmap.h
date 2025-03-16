@@ -1,6 +1,6 @@
 /*
  *   Copyright (c) 2025 Igor Belwon <igor.belwon@mentallysanemainliners.org>
-
+ *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, version 2.
@@ -9,24 +9,25 @@
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
-
+ *
  *   You should have received a copy of the GNU General Public License
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef FIREPLACE_MACROS_H
-#define FIREPLACE_MACROS_H
+#ifndef FIREPLACE_GUI_H
+#define FIREPLACE_GUI_H
 
-#include <unicorn/unicorn.h>
+enum board_memory_type {
+        MEMORY_8GB,
+        MEMORY_12GB
+};
 
-#define uc_handle_error(msg, err) \
-	if (err)						\
-	{							\
-		uc_err_printf(msg, err);	\
-		return err;					\
-	}
+struct memory_mapping {
+	uint64_t base;
+	size_t size;
+	uint32_t perms;
+};
 
-#define uc_err_printf(msg, err) \
-	printf("%s (returned: %u (%s))\n", msg, err, uc_strerror(err))
+int memmap_soc(uc_engine *uc, enum board_memory_type board);
 
 #endif
