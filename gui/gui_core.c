@@ -49,14 +49,16 @@
 #include <fireplace/core/core.h>
 #include <fireplace/core/emulator.h>
 
-#define RESOLUTION_SCALE 	(0.4)
-#define WINDOW_WIDTH		(1440 * RESOLUTION_SCALE)
-#define WINDOW_HEIGHT		(3200 * RESOLUTION_SCALE)
+#define RESOLUTION_SCALE (0.4)
+#define WINDOW_WIDTH (1440 * RESOLUTION_SCALE)
+#define WINDOW_HEIGHT (3200 * RESOLUTION_SCALE)
 
 extern pthread_mutex_t main_mutex;
 extern pthread_cond_t main_cond;
 
 extern atomic_int sharedState;
+extern char uart_buf[];
+extern pthread_mutex_t uart_lock;
 
 void gui_init(void)
 {
@@ -72,7 +74,7 @@ void gui_init(void)
 	return;
 }
 
-void *gui_core(void* dummy)
+void *gui_core(void *dummy)
 {
 	/* Platform */
 	SDL_Window *win;
@@ -83,6 +85,8 @@ void *gui_core(void* dummy)
 	/* GUI */
 	struct nk_context *ctx;
 	struct nk_colorf bg;
+
+	state emuState = 0;
 
 	win = SDL_CreateWindow("Fireplace",
 			       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -112,15 +116,53 @@ void *gui_core(void* dummy)
 		}
 		nk_input_end(ctx);
 
+		emuState = atomic_load(&sharedState);
+
 		/* GUI */
-		if (nk_begin(ctx, "Emulator setup", nk_rect(50, 50, 230, 250),
+		if (nk_begin(ctx, "Emulator setup", nk_rect(0, 0, 230, 250),
 			     NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
 				 NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
 		{
 			nk_layout_row_static(ctx, 30, 80, 1);
-			if((atomic_load(&sharedState) != STATE_RUNNING) &&
-			   nk_button_label(ctx, "Start"))
-				create_emulator_thread();
+			if (emuState != STATE_RUNNING)
+			{
+				if (nk_button_label(ctx, "Start"))
+					create_emulator_thread();
+			}
+
+			nk_layout_row_dynamic(ctx, 30, 1);
+			switch (emuState)
+			{
+			case STATE_OFF:
+				nk_label_colored(ctx, "Emulator state: off",
+						 NK_TEXT_LEFT, nk_rgb(208, 211, 212));
+				break;
+			case STATE_RUNNING:
+				nk_label_colored(ctx, "Emulator state: running",
+						 NK_TEXT_LEFT, nk_rgb(9, 255, 0));
+				break;
+			case STATE_CRASHED:
+				nk_label_colored(ctx, "Emulator state: crashed",
+						 NK_TEXT_LEFT, nk_rgb(208, 211, 212));
+				break;
+			default:
+				nk_label_colored(ctx, "Emulator state: unknown",
+						 NK_TEXT_LEFT, nk_rgb(255, 0, 166));
+				break;
+			}
+		}
+
+		nk_end(ctx);
+
+		if (nk_begin(ctx, "UART window", nk_rect(50, 50, 250, 500),
+			     NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
+				 NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
+		{
+			nk_layout_row_dynamic(ctx, 8096, 1);
+
+			pthread_mutex_lock(&uart_lock);
+			nk_label_colored_wrap(ctx, uart_buf, nk_rgb(255, 255, 255));
+			pthread_mutex_unlock(&uart_lock);
 		}
 
 		nk_end(ctx);

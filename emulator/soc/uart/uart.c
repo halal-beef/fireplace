@@ -14,10 +14,25 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <pthread.h>
 #include <stdio.h>
+#include <string.h>
+
 #include <unicorn/unicorn.h>
 
-int uart_init(struct uc_struct* uc_s)
+#include <fireplace/soc/uart/uart.h>
+
+char uart_buf[UART_BUF_SIZE] = "\x0";
+pthread_mutex_t uart_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void append(char *s, char c)
+{
+	int len = strlen(s);
+	s[len] = c;
+	s[len + 1] = '\0';
+}
+
+int uart_init(struct uc_struct *uc_s)
 {
 	printf("= uart_init\n");
 	uc_mem_write(uc_s, 0x10540020, "\x0", 4);
@@ -26,5 +41,7 @@ int uart_init(struct uc_struct* uc_s)
 
 void uart_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_t value, void *user_data)
 {
-	printf("%c", value);
+	pthread_mutex_lock(&uart_lock);
+	append(uart_buf, value);
+	pthread_mutex_unlock(&uart_lock);
 }

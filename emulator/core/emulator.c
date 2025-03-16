@@ -66,7 +66,7 @@ load_image(uc_engine *uc, const char *file, uint64_t base, uint64_t *last)
 	return err;
 }
 
-atomic_int sharedState;
+atomic_int sharedState = 0;
 
 static inline int emulator_init(void)
 {
@@ -99,7 +99,6 @@ static inline int emulator_init(void)
 	/*
 	 * Basic emulator setup is done. Now, init peripherals.
 	 */
-
 	err = soc_peripherals_init(uc);
 	if (err)
 	{
@@ -112,12 +111,12 @@ static inline int emulator_init(void)
 	if ((err = uc_emu_start(uc, INT_BIN_ADDR, end, 0, 0)) != UC_ERR_OK)
 	{
 		printf("\n------> fireplace exception: %s\n", uc_strerror(err));
-		goto cleanup;
+		atomic_store(&sharedState, STATE_CRASHED);
+		uc_close(uc);
+		return -1;
 	}
 
-cleanup:
-	uc_close(uc);
-
+	atomic_store(&sharedState, STATE_OFF);
 	return 0;
 }
 

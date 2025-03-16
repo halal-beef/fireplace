@@ -19,6 +19,8 @@
 
 #include <unicorn/unicorn.h>
 
+#define UART_BUF_SIZE 80000
+
 int uart_init(struct uc_struct*);
 void uart_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_t value, void *user_data);
 
