@@ -110,8 +110,18 @@ static inline int emulator_init(void)
 	atomic_store(&sharedState, STATE_RUNNING);
 	if ((err = uc_emu_start(uc, INT_BIN_ADDR, end, 0, 0)) != UC_ERR_OK)
 	{
+		int pc;
+
 		printf("\n------> fireplace exception: %s\n", uc_strerror(err));
 		atomic_store(&sharedState, STATE_CRASHED);
+		if (uc_reg_read(uc, UC_ARM64_REG_PC, &pc) != UC_ERR_OK)
+		{
+			printf("Failed to read PC register\n");
+		}
+		else
+		{
+			printf("= PC at 0x%x =\n", pc);
+		}
 		uc_close(uc);
 		return -1;
 	}

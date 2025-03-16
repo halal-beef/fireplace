@@ -48,6 +48,7 @@
 
 #include <fireplace/core/core.h>
 #include <fireplace/core/emulator.h>
+#include <fireplace/soc/uart/uart.h>
 
 #define RESOLUTION_SCALE (0.4)
 #define WINDOW_WIDTH (1440 * RESOLUTION_SCALE)
@@ -59,6 +60,8 @@ extern pthread_cond_t main_cond;
 extern atomic_int sharedState;
 extern char uart_buf[];
 extern pthread_mutex_t uart_lock;
+
+extern atomic_int line;
 
 void gui_init(void)
 {
@@ -87,6 +90,7 @@ void *gui_core(void *dummy)
 	struct nk_colorf bg;
 
 	state emuState = 0;
+	int cline = 0;
 
 	win = SDL_CreateWindow("Fireplace",
 			       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -117,6 +121,7 @@ void *gui_core(void *dummy)
 		nk_input_end(ctx);
 
 		emuState = atomic_load(&sharedState);
+		cline = atomic_load(&line);
 
 		/* GUI */
 		if (nk_begin(ctx, "Emulator setup", nk_rect(0, 0, 230, 250),
@@ -154,15 +159,18 @@ void *gui_core(void *dummy)
 
 		nk_end(ctx);
 
-		if (nk_begin(ctx, "UART window", nk_rect(50, 50, 250, 500),
-			     NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
+		if (nk_begin(ctx, "UART window", nk_rect(50, 50, 500, 400),
+			     NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
 				 NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
 		{
-			nk_layout_row_dynamic(ctx, 8096, 1);
+			nk_layout_row_dynamic(ctx, UART_BUF_SIZE*2, 1);
 
 			pthread_mutex_lock(&uart_lock);
 			nk_label_colored_wrap(ctx, uart_buf, nk_rgb(255, 255, 255));
 			pthread_mutex_unlock(&uart_lock);
+
+			// This is the worst shit i've ever written
+			nk_window_set_scroll(ctx, 0, (line*27));
 		}
 
 		nk_end(ctx);

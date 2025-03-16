@@ -15,6 +15,7 @@
  */
 
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -24,12 +25,25 @@
 
 char uart_buf[UART_BUF_SIZE] = "\x0";
 pthread_mutex_t uart_lock = PTHREAD_MUTEX_INITIALIZER;
+int count = 0;
+
+atomic_int line = 0;
+
+void incr_line()
+{
+	int atLine = atomic_load(&line);
+	atLine++;
+	atomic_store(&line, atLine);
+}
 
 void append(char *s, char c)
 {
-	int len = strlen(s);
-	s[len] = c;
-	s[len + 1] = '\0';
+	int count = strlen(s);
+	s[count] = c;
+	s[count + 1] = '\0';
+
+	if(c == '\n')
+		incr_line();
 }
 
 int uart_init(struct uc_struct *uc_s)
@@ -43,5 +57,8 @@ void uart_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int6
 {
 	pthread_mutex_lock(&uart_lock);
 	append(uart_buf, value);
+	if(count == UART_BUF_SIZE)
+		memset(uart_buf, '\0', sizeof(uart_buf));
+	printf("%c", value);
 	pthread_mutex_unlock(&uart_lock);
 }

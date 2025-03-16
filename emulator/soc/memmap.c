@@ -40,11 +40,11 @@ struct memory_mapping exynos990_12gb_memory[] = {
 	/* RAM block 1 */
 	{ 0x80000000, 0x79800000, UC_PROT_ALL   },
 	/* Unknown - TT_NONCACHEBLE(?) */
-	{ 0xF9800000, 0x03C00000, UC_PROT_READ  },
+	{ 0xF9800000, 0x03C00000, UC_PROT_ALL  },
 	/* RAM block 2 */
 	{ 0xFD400000, 0x00500000, UC_PROT_ALL   },
 	/* Unknown - TT_NONCACHEBLE(?) */
-	{ 0xFD900000, 0x00200000, UC_PROT_READ  },
+	{ 0xFD900000, 0x00200000, UC_PROT_ALL  },
 	/* RAM block 3 */
 	{ 0xFDB00000, 0x02500000, UC_PROT_ALL   },
 	/* End of 32-bit address space. */
