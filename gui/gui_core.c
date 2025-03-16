@@ -24,12 +24,14 @@
 #include <math.h>
 #include <limits.h>
 #include <time.h>
+#include <pthread.h>
+#include <stdbool.h>
 
 // Include SDL2 first
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
-/* Nuklear */
+// Nuklear
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS
@@ -43,8 +45,16 @@
 #include <external/nuklear.h>
 #include <external/nuklear_sdl_gl2.h>
 
-#define WINDOW_WIDTH 1200
-#define WINDOW_HEIGHT 800
+#include <fireplace/core/core.h>
+
+#define RESOLUTION_SCALE 	(0.4)
+#define WINDOW_WIDTH		(1440 * RESOLUTION_SCALE)
+#define WINDOW_HEIGHT		(3200 * RESOLUTION_SCALE)
+
+extern pthread_mutex_t main_mutex;
+extern pthread_cond_t main_cond;
+extern bool emu_running;
+extern bool emu_ready;
 
 void gui_init(void)
 {
@@ -106,10 +116,10 @@ void *gui_core(void* dummy)
 				 NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
 		{
 			nk_layout_row_static(ctx, 30, 80, 1);
-			if (nk_button_label(ctx, "Start emulator"))
-				//fireplace_emu_begin();
-			nk_layout_row_dynamic(ctx, 30, 2);
+			if(!emu_running && nk_button_label(ctx, "Start"))
+				create_emulator_thread();
 		}
+
 		nk_end(ctx);
 
 		/* Draw */
