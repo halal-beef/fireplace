@@ -25,7 +25,7 @@
 #include <fireplace/soc/soc.h>
 
 #define INT_BIN_PATH "../../../../../fireplace/lk.bin"
-#define INT_BIN_ADDR 0xF8800000
+#define INT_BIN_ADDR 0xe1900000
 #define INT_BIN_SIZE 0x00F00000
 
 /*
