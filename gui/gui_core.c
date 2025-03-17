@@ -163,14 +163,14 @@ void *gui_core(void *dummy)
 			     NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
 				 NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
 		{
-			nk_layout_row_dynamic(ctx, UART_BUF_SIZE*2, 1);
+			nk_layout_row_dynamic(ctx, UART_BUF_SIZE * 2, 1);
 
 			pthread_mutex_lock(&uart_lock);
 			nk_label_colored_wrap(ctx, uart_buf, nk_rgb(255, 255, 255));
 			pthread_mutex_unlock(&uart_lock);
 
 			// This is the worst shit i've ever written
-			nk_window_set_scroll(ctx, 0, (line*27));
+			nk_window_set_scroll(ctx, 0, (line * 27));
 		}
 
 		nk_end(ctx);
