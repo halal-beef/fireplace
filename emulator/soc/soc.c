@@ -18,9 +18,12 @@
 
 #include <fireplace/soc/peripherals.h>
 #include <fireplace/soc/uart/uart.h>
+#include <fireplace/soc/usb/usb.h>
 
 struct peripheral exynos990_peripherals[] = {
 	{"uart", true, 0x10540000, 0x1000, uart_init, uart_hook},
+	{"usb_phy", true, USB_PHY_BASE, 0x100, usb_phy_init, usb_phy_hook},
+	{"usb", true, USB_DWC_BASE, 0x200000, usb_init, usb_hook},
 	{"terminator", false, 0x0, 0x0, NULL, NULL}
 };
 
