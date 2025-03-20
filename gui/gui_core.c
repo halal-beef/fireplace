@@ -48,20 +48,12 @@
 
 #include <fireplace/core/core.h>
 #include <fireplace/core/emulator.h>
+#include <fireplace/gui/gui.h>
 #include <fireplace/soc/uart/uart.h>
 
 #define RESOLUTION_SCALE (0.4)
 #define WINDOW_WIDTH (1440 * RESOLUTION_SCALE)
 #define WINDOW_HEIGHT (3200 * RESOLUTION_SCALE)
-
-extern pthread_mutex_t main_mutex;
-extern pthread_cond_t main_cond;
-
-extern atomic_int sharedState;
-extern char uart_buf[];
-extern pthread_mutex_t uart_lock;
-
-extern atomic_int line;
 
 void gui_init(void)
 {
