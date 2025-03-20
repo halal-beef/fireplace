@@ -49,6 +49,7 @@
 #include <fireplace/core/core.h>
 #include <fireplace/core/emulator.h>
 #include <fireplace/gui/gui.h>
+#include <fireplace/soc/fb/fb.h>
 #include <fireplace/soc/uart/uart.h>
 
 #define RESOLUTION_SCALE (0.4)
@@ -133,6 +134,57 @@ void blit_uart_window(struct nk_context *ctx)
 	nk_end(ctx);
 }
 
+static GLuint fb_texture = 0;
+
+static GLuint prepare_fb_texture()
+{
+	if (fb_texture == 0)
+	{
+		glGenTextures(1, &fb_texture);
+	}
+
+	glBindTexture(GL_TEXTURE_2D, fb_texture);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 1440);
+
+	pthread_mutex_lock(&fb_lock);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FB_WIDTH, FB_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, framebuffer);
+
+	pthread_mutex_unlock(&fb_lock);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return fb_texture;
+}
+
+void render_ogl(SDL_Window *win, int win_width, int win_height)
+{
+	SDL_GetWindowSize(win, &win_width, &win_height);
+	glViewport(0, 0, win_width, win_height);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, prepare_fb_texture());
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0.0f, 1.0f);
+	glVertex2f(-1.0f, -1.0f); // Bottom-left
+	glTexCoord2f(1.0f, 1.0f);
+	glVertex2f(1.0f, -1.0f); // Bottom-right
+	glTexCoord2f(1.0f, 0.0f);
+	glVertex2f(1.0f, 1.0f); // Top-right
+	glTexCoord2f(0.0f, 0.0f);
+	glVertex2f(-1.0f, 1.0f); // Top-left
+	glEnd();
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	nk_sdl_render(NK_ANTI_ALIASING_ON);
+	SDL_GL_SwapWindow(win);
+}
+
 void *gui_core(void *dummy)
 {
 	/* Platform */
@@ -143,7 +195,6 @@ void *gui_core(void *dummy)
 
 	/* GUI */
 	struct nk_context *ctx;
-	struct nk_colorf bg;
 
 	win = SDL_CreateWindow("Fireplace",
 			       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -159,7 +210,6 @@ void *gui_core(void *dummy)
 		nk_sdl_font_stash_end();
 	}
 
-	bg.r = 0.10f, bg.g = 0.10f, bg.b = 0.14f, bg.a = 1.0f;
 	while (running)
 	{
 		/* Input */
@@ -176,13 +226,7 @@ void *gui_core(void *dummy)
 		blit_window(ctx);
 		blit_uart_window(ctx);
 
-		/* Draw */
-		SDL_GetWindowSize(win, &win_width, &win_height);
-		glViewport(0, 0, win_width, win_height);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glClearColor(bg.r, bg.g, bg.b, bg.a);
-		nk_sdl_render(NK_ANTI_ALIASING_ON);
-		SDL_GL_SwapWindow(win);
+		render_ogl(win, win_height, win_width);
 	}
 
 cleanup:
