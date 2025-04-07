@@ -49,6 +49,7 @@ void append(char *s, char c)
 int uart_init(struct uc_struct *uc_s)
 {
 	printf("= uart_init\n");
+	uc_mem_write(uc_s, 0x10540010, "\x2", 4);
 	uc_mem_write(uc_s, 0x10540020, "\x0", 4);
 	return 0;
 }
