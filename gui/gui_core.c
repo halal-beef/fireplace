@@ -53,7 +53,7 @@
 #include <fireplace/soc/uart/uart.h>
 #include <fireplace/soc/hardware_buttons/hardware_buttons.h>
 
-#define RESOLUTION_SCALE (0.4)
+#define RESOLUTION_SCALE (0.3)
 #define WINDOW_WIDTH (1440 * RESOLUTION_SCALE)
 #define WINDOW_HEIGHT (3200 * RESOLUTION_SCALE)
 

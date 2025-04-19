@@ -50,6 +50,56 @@ int soc_peripheral_init_one(uc_engine *uc,
 	return err;
 }
 
+#define INITIAL_CAPACITY 1024
+
+typedef struct {
+    uint64_t *pcs;
+    size_t count;
+    size_t capacity;
+} PCSet;
+
+void pcset_init(PCSet *set) {
+    set->pcs = malloc(INITIAL_CAPACITY * sizeof(uint64_t));
+    set->count = 0;
+    set->capacity = INITIAL_CAPACITY;
+}
+
+int pcset_contains(PCSet *set, uint64_t pc) {
+    for (size_t i = 0; i < set->count; ++i) {
+        if (set->pcs[i] == pc) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void pcset_add(PCSet *set, uint64_t pc) {
+    if (set->count >= set->capacity) {
+        set->capacity *= 2;
+        set->pcs = realloc(set->pcs, set->capacity * sizeof(uint64_t));
+    }
+    set->pcs[set->count++] = pc;
+}
+
+void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    static PCSet pcset;
+    static int initialized = 0;
+
+    if (!initialized) {
+        pcset_init(&pcset);
+        initialized = 1;
+    }
+
+    uint64_t pc;
+    uc_reg_read(uc, UC_ARM64_REG_PC, &pc);
+
+    if (!pcset_contains(&pcset, pc)) {
+        printf("[+] PC = 0x%" PRIx64 "\n", pc);
+        pcset_add(&pcset, pc);
+    }
+}
+
 int soc_peripherals_init(uc_engine *uc)
 {
 	int err = 0;
@@ -63,5 +113,7 @@ int soc_peripherals_init(uc_engine *uc)
 		err = soc_peripheral_init_one(uc, &exynos990_peripherals[i]);
 	}
 
+	uc_hook trace;
+	uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0); // start = 1, end = 0 -> entire range
 	return err;
 }
