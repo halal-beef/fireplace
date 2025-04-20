@@ -56,6 +56,80 @@ static inline void do_image_patches(uc_engine *uc)
         // Patch loop at 0xe80295cc
         if ((err = uc_mem_write(uc, 0xe80295cc, "\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 8)) != UC_ERR_OK)
                 printf("ERROR PATCHING infinite loop: %s\n", uc_strerror(err));
+
+	// Patch wait loop at 0xe8028b64
+        if ((err = uc_mem_write(uc, 0xe8028b64, "\x1f\x10\x00\x71", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING infinite loop: %s\n", uc_strerror(err));
+
+        // Patch loop at 0xe802b21c
+        if ((err = uc_mem_write(uc, 0xe802b21c, "\x1f\x10\x00\x71", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING infinite loop: %s\n", uc_strerror(err));
+
+        // Patch loop at 0xe8028960
+        if ((err = uc_mem_write(uc, 0xe8028960, "\x1f\x10\x00\x71", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING infinite loop: %s\n", uc_strerror(err));
+
+	// Patch blkread at 0xe8030128
+        if ((err = uc_mem_write(uc, 0xe8030128, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING blkread: %s\n", uc_strerror(err));
+
+        if ((err = uc_mem_write(uc, 0xe8030144, "\xc0\x03\x5f\xd6", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING blkread: %s\n", uc_strerror(err));
+
+        // Patch blkwrite at 0xe8030220
+        if ((err = uc_mem_write(uc, 0xe8030220, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING blkread: %s\n", uc_strerror(err));
+
+        if ((err = uc_mem_write(uc, 0xee803023c, "\xc0\x03\x5f\xd6", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING blkread: %s\n", uc_strerror(err));
+
+	// BLKRead patch dont work i cant be bothered 0xe803557c
+        if ((err = uc_mem_write(uc, 0xe803557c, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING blkread caller: %s\n", uc_strerror(err));
+
+        // Patch loop at 0xe801319c
+        if ((err = uc_mem_write(uc, 0xe801319c, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING infinite loop: %s\n", uc_strerror(err));
+
+	// Patch OTP_v20 Random number function at 0xe8014390
+        if ((err = uc_mem_write(uc, 0xe8014390, "\x00\x00\x80\xd2\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+                printf("ERROR PATCHING OTP_v20 Random number function: %s\n", uc_strerror(err));
+
+	// Patch WHAT IS THIS SMC CALL at 0xe8012f10
+        if ((err = uc_mem_write(uc, 0xe8012f10, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+                printf("ERROR PATCHING WHAT IS THIS SMC CALL: %s\n", uc_strerror(err));
+
+        // Patch OTP_v20 Model ID Read function at 0xe80159c4
+        if ((err = uc_mem_write(uc, 0xe80159c4, "\x00\x00\x80\xd2\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+                printf("ERROR PATCHING OTP_v20 Model ID Read function: %s\n", uc_strerror(err));
+
+        // Patch OTP_v20 USE_ROM_SEC_BOOT_KEY_READ at 0xe8014c8c
+        if ((err = uc_mem_write(uc, 0xe8014c8c, "\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 8)) != UC_ERR_OK)
+                printf("ERROR PATCHING PART1 OF OTP_v20 USE_ROM_SEC_BOOT_KEY_READ: %s\n", uc_strerror(err));
+
+        if ((err = uc_mem_write(uc, 0xe8014ca0, "\x1f\x20\x03\xd5\x00\x00\x80\x52\xc0\x03\x5f\xd6", 12)) != UC_ERR_OK)
+                printf("ERROR PATCHING PART2 OF OTP_v20 USE_ROM_SEC_BOOT_KEY_READ: %s\n", uc_strerror(err));
+
+	// Patch secureboot farts, i literally cannot be bothered
+        if ((err = uc_mem_write(uc, 0xe8002444, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING SECUREBOOT FARTS: %s\n", uc_strerror(err));
+
+	// Patch whatever the hell this is
+        if ((err = uc_mem_write(uc, 0xe806b4f8, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING WHAT IS THIS: %s\n", uc_strerror(err));
+
+	printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
+
+	uint32_t val = (0x12345600 | 0x1);
+
+        if ((err = uc_mem_write(uc, 0x15860000 + 0x80c, &val, 4)) != UC_ERR_OK)
+                printf("ERROR: %\n", uc_strerror(err));
+
+	val = 0x4e0000;
+
+        if ((err = uc_mem_write(uc, 0x15860000 + 0x808, &val, 4)) != UC_ERR_OK)
+                printf("ERROR: %\n", uc_strerror(err));
+
 }
 
 /*
