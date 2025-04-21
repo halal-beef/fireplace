@@ -110,13 +110,17 @@ static inline void do_image_patches(uc_engine *uc)
         if ((err = uc_mem_write(uc, 0xe8014ca0, "\x1f\x20\x03\xd5\x00\x00\x80\x52\xc0\x03\x5f\xd6", 12)) != UC_ERR_OK)
                 printf("ERROR PATCHING PART2 OF OTP_v20 USE_ROM_SEC_BOOT_KEY_READ: %s\n", uc_strerror(err));
 
-	// Patch secureboot farts, i literally cannot be bothered
+	// Patch secureboot farts, i literally cannot be bothered at 0xe8002444
         if ((err = uc_mem_write(uc, 0xe8002444, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
                 printf("ERROR PATCHING SECUREBOOT FARTS: %s\n", uc_strerror(err));
 
-	// Patch whatever the hell this is
+	// Patch whatever the hell this is at 0xe806b4f8
         if ((err = uc_mem_write(uc, 0xe806b4f8, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
                 printf("ERROR PATCHING WHAT IS THIS: %s\n", uc_strerror(err));
+
+        // Patch call to a random func at 0xe806b684
+        if ((err = uc_mem_write(uc, 0xe806b684, "\x1f\x20\x03\xd5", 4)) != UC_ERR_OK)
+                printf("ERROR PATCHING RANDOM FUNC CALL: %s\n", uc_strerror(err));
 
 	printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
 
