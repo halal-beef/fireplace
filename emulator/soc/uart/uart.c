@@ -58,7 +58,10 @@ void uart_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int6
 	pthread_mutex_lock(&uart_lock);
 	append(uart_buf, value);
 	if(count == UART_BUF_SIZE)
+	{
 		memset(uart_buf, '\0', sizeof(uart_buf));
+		count = 0;
+	}
 	printf("%c", value);
 	pthread_mutex_unlock(&uart_lock);
 }

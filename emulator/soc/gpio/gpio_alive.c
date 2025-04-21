@@ -50,7 +50,7 @@ int gpio_alive_init(struct uc_struct *uc_s)
 	/* Set initial GPIO values. */
 	exynos_gpio_set_value(uc_s, bank_volume, 3, 1);
 	exynos_gpio_set_value(uc_s, bank_volume, 4, 1);
-	exynos_gpio_set_value(uc_s, bank_power, 4, 1);
+	exynos_gpio_set_value(uc_s, bank_power, 4, 0);
 
 	printf("= intialized button pins!\n");
 	return 0;

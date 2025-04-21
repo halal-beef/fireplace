@@ -180,7 +180,7 @@ int soc_peripherals_init(uc_engine *uc)
 	}
 
 	uc_hook trace;
-	//uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0); // start = 1, end = 0 -> entire range
+//	uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0); // start = 1, end = 0 -> entire range
         uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_smc, NULL, 1, 0);
 	uc_hook_add(uc, &trace, UC_HOOK_MEM_INVALID, (void*)mem_invalid_cb, NULL, 1, 0);
 	return err;
