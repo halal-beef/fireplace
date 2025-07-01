@@ -23,7 +23,7 @@
 #include <fireplace/core/macros.h>
 #include <fireplace/soc/memmap.h>
 #include <fireplace/soc/soc.h>
-
+#include <string.h>
 #define INT_BIN_PATH "/home/umer/Downloads/lk.bin"
 #define INT_BIN_ADDR 0xE8000000
 #define INT_BIN_SIZE 0x00F00000
@@ -134,6 +134,11 @@ static inline void do_image_patches(uc_engine *uc)
         if ((err = uc_mem_write(uc, 0xe80b9180, "\x80\x0c\x80\x52\xc0\x03\x5f\xd6\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 28)) != UC_ERR_OK)
                 printf("ERROR SPOOFING BATTERY PERCENTAGE: %s\n", uc_strerror(err));
 
+//	printf("Setting up T32 Fuse Magic.\n");
+//	if ((err = uc_mem_write(uc, 0x80000000, "\xca\xcc\x26\x66", 4)) != UC_ERR_OK)
+//		printf("T32 Fuse Magic Set Failed: %s\n", uc_strerror(err));
+
+
 /*	printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
 
 	uint32_t val = (0x12345600 | 0x1);
@@ -141,11 +146,7 @@ static inline void do_image_patches(uc_engine *uc)
         if ((err = uc_mem_write(uc, 0x15860000 + 0x80c, &val, 4)) != UC_ERR_OK)
                 printf("ERROR: %\n", uc_strerror(err));
 
-	val = 0x4e0000;
-
-        if ((err = uc_mem_write(uc, 0x15860000 + 0x808, &val, 4)) != UC_ERR_OK)
-                printf("ERROR: %\n", uc_strerror(err));
-*/
+	val = 0x4e0000;*/
 }
 
 /*
