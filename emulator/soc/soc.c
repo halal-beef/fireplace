@@ -22,6 +22,10 @@
 #include <fireplace/soc/gpio/gpio_alive.h>
 #include <fireplace/soc/uart/uart.h>
 #include <fireplace/soc/usb/usb.h>
+#include <fireplace/soc/ufs/ufs.h>
+
+#include <string.h>
+#include <ctype.h>
 
 struct peripheral exynos990_peripherals[] = {
 	{"chipid", true, 0x10000000, 0x1000, chipid_init, chipid_hook},
@@ -30,6 +34,7 @@ struct peripheral exynos990_peripherals[] = {
 	//{"usb_phy", true, USB_PHY_BASE, 0x100, usb_phy_init, usb_phy_hook},
 	//{"usb", true, USB_DWC_BASE, 0x200000, usb_init, usb_hook},
 	// TODO: Platforms with 1080p displays
+    {"ufs", true, 0x13100000, 0x80000, ufs_init, ufs_hook},
 	{"framebuffer", true, FB_ADDRESS, FB_SIZE, fb_init, fb_hook},
 	{"terminator", false, 0x0, 0x0, NULL, NULL}
 };
@@ -100,6 +105,11 @@ void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
         printf("[+] PC = 0x%" PRIx64 "\n", pc);
         pcset_add(&pcset, pc);
     }
+
+    if (pc == 0xe802a108)
+    {
+        printf("Entering UFS Initialization\n");
+    }
 }
 
 static bool mem_invalid_cb(uc_engine *uc, uc_mem_type type,
@@ -168,6 +178,166 @@ void hook_smc(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
     }
 }
 
+/* Read a NUL-terminated string out of guest memory, byte by byte
+ * (safe against unmapped pages causing a giant uc_mem_read failure). */
+static void read_cstring(uc_engine *uc, uint64_t addr, char *buf, size_t bufsize)
+{
+    if (addr == 0) {
+        snprintf(buf, bufsize, "(null)");
+        return;
+    }
+    size_t i = 0;
+    while (i < bufsize - 1) {
+        uint8_t c;
+        if (uc_mem_read(uc, addr + i, &c, 1) != UC_ERR_OK) {
+            buf[i] = 0;
+            snprintf(buf + i, bufsize - i, "<unmapped @0x%llx>", (unsigned long long)(addr + i));
+            return;
+        }
+        if (c == 0) break;
+        buf[i++] = (char)c;
+    }
+    buf[i] = 0;
+}
+ 
+/* Pull the next integer/pointer argument: x1..x7 first, then stack. */
+static uint64_t next_arg(uc_engine *uc, uint64_t *x, int *argi, uint64_t sp, int *stack_idx)
+{
+    if (*argi <= 7) {
+        return x[(*argi)++];
+    }
+    uint64_t v = 0;
+    uc_mem_read(uc, sp + 8 * (*stack_idx), &v, 8);
+    (*stack_idx)++;
+    return v;
+}
+ 
+/* Format `fmt` using the register values in x[0..7] (x[0] is the fmt
+ * pointer itself and is not consumed as an argument) and write the
+ * result into out (size outsz). */
+static void format_string(uc_engine *uc, const char *fmt, uint64_t *x,
+                           uint64_t sp, char *out, size_t outsz)
+{
+    size_t out_pos = 0;
+    int argi = 1;       /* x0 is the format string, args start at x1 */
+    int stack_idx = 0;
+ 
+    for (const char *p = fmt; *p && out_pos < outsz - 1; p++) {
+        if (*p != '%') {
+            out[out_pos++] = *p;
+            continue;
+        }
+ 
+        const char *start = p;
+        p++;
+        if (*p == '%') { /* literal %% */
+            out[out_pos++] = '%';
+            continue;
+        }
+ 
+        while (*p && strchr("-+ #0", *p)) p++;          /* flags */
+        while (*p && isdigit((unsigned char)*p)) p++;     /* width */
+        if (*p == '.') { p++; while (*p && isdigit((unsigned char)*p)) p++; } /* precision */
+ 
+        int length = 0; /* 0=int, 1=long, 2=long long */
+        while (*p == 'l' || *p == 'h' || *p == 'z' || *p == 'j' || *p == 't') {
+            if (*p == 'l') length++;
+            p++;
+        }
+ 
+        char conv = *p;
+        size_t speclen = (size_t)(p - start) + 1;
+        char spec[32];
+        if (speclen >= sizeof(spec)) speclen = sizeof(spec) - 1;
+        memcpy(spec, start, speclen);
+        spec[speclen] = 0;
+ 
+        char piece[1024];
+        switch (conv) {
+            case 'd': case 'i': {
+                uint64_t v = next_arg(uc, x, &argi, sp, &stack_idx);
+                if (length >= 2)      snprintf(piece, sizeof(piece), spec, (long long)(int64_t)v);
+                else if (length == 1) snprintf(piece, sizeof(piece), spec, (long)(int64_t)v);
+                else                  snprintf(piece, sizeof(piece), spec, (int)(int32_t)v);
+                break;
+            }
+            case 'u': case 'x': case 'X': case 'o': {
+                uint64_t v = next_arg(uc, x, &argi, sp, &stack_idx);
+                if (length >= 2)      snprintf(piece, sizeof(piece), spec, (unsigned long long)v);
+                else if (length == 1) snprintf(piece, sizeof(piece), spec, (unsigned long)v);
+                else                  snprintf(piece, sizeof(piece), spec, (unsigned int)v);
+                break;
+            }
+            case 'p': {
+                uint64_t v = next_arg(uc, x, &argi, sp, &stack_idx);
+                snprintf(piece, sizeof(piece), "0x%llx", (unsigned long long)v);
+                break;
+            }
+            case 'c': {
+                uint64_t v = next_arg(uc, x, &argi, sp, &stack_idx);
+                snprintf(piece, sizeof(piece), spec, (int)v);
+                break;
+            }
+            case 's': {
+                uint64_t v = next_arg(uc, x, &argi, sp, &stack_idx);
+                char strbuf[512];
+                read_cstring(uc, v, strbuf, sizeof(strbuf));
+                snprintf(piece, sizeof(piece), spec, strbuf);
+                break;
+            }
+            case 'f': case 'e': case 'g': case 'F': case 'E': case 'G': {
+                /* Floating args live in v0-v7, not x[]. Can't resolve here. */
+                next_arg(uc, x, &argi, sp, &stack_idx); /* keep x-index sane just in case */
+                snprintf(piece, sizeof(piece), "<float:not-supported>");
+                break;
+            }
+            default: {
+                snprintf(piece, sizeof(piece), "%s", spec);
+                break;
+            }
+        }
+ 
+        size_t plen = strlen(piece);
+        if (out_pos + plen >= outsz - 1) plen = outsz - 1 - out_pos;
+        memcpy(out + out_pos, piece, plen);
+        out_pos += plen;
+ 
+        if (conv == 0) break;
+    }
+    out[out_pos] = 0;
+}
+ 
+void hook_print(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t x[8];
+    uint64_t lr, sp;
+ 
+    uc_reg_read(uc, UC_ARM64_REG_X0, &x[0]);
+    uc_reg_read(uc, UC_ARM64_REG_X1, &x[1]);
+    uc_reg_read(uc, UC_ARM64_REG_X2, &x[2]);
+    uc_reg_read(uc, UC_ARM64_REG_X3, &x[3]);
+    uc_reg_read(uc, UC_ARM64_REG_X4, &x[4]);
+    uc_reg_read(uc, UC_ARM64_REG_X5, &x[5]);
+    uc_reg_read(uc, UC_ARM64_REG_X6, &x[6]);
+    uc_reg_read(uc, UC_ARM64_REG_X7, &x[7]);
+ 
+    uc_reg_read(uc, UC_ARM64_REG_X30, &lr);
+    uc_reg_read(uc, UC_ARM64_REG_SP, &sp);
+ 
+    char fmt[1024];
+    uc_mem_read(uc, x[0], fmt, sizeof(fmt) - 1);
+    fmt[sizeof(fmt) - 1] = 0;
+ 
+    char formatted[4096];
+    format_string(uc, fmt, x, sp, formatted, sizeof(formatted));
+ 
+    printf(formatted);
+ 
+    /* emulate return */
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+
 int soc_peripherals_init(uc_engine *uc)
 {
 	int err = 0;
@@ -182,8 +352,8 @@ int soc_peripherals_init(uc_engine *uc)
 	}
 
 	uc_hook trace;
-//	uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0); // start = 1, end = 0 -> entire range
-        uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_smc, NULL, 1, 0);
+	uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_print, NULL, 0xe80dee98, 0xe80dee98); // start = 1, end = 0 -> entire range
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_smc, NULL, 1, 0);
 	uc_hook_add(uc, &trace, UC_HOOK_MEM_INVALID, (void*)mem_invalid_cb, NULL, 1, 0);
 	return err;
 }
