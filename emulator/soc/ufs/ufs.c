@@ -221,6 +221,105 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
             utrd.dw[2] = 0x0; // Set OCS to success
             uc_mem_write(uc, utrd_addr, &utrd, sizeof(utrd));
 
+            uint64_t desc_addr = ((uint64_t)utrd.cmd_desc_addr_h << 32) | utrd.cmd_desc_addr_l;
+            struct ufs_cmd_desc desc;
+            uc_mem_read(uc, desc_addr, &desc, sizeof(desc));
+            printf("[UFS] Command Descriptor Dump:\n");
+            printf("Command UPIU Header:\n");
+            printf("type: 0x%x\n", desc.command_upiu.header.type);
+            printf("flags: 0x%x\n", desc.command_upiu.header.flags);
+            printf("lun: 0x%x\n", desc.command_upiu.header.lun);
+            printf("tag: 0x%x\n", desc.command_upiu.header.tag);
+            printf("cmdtype: 0x%x\n", desc.command_upiu.header.cmdtype);
+            printf("function: 0x%x\n", desc.command_upiu.header.function);
+            printf("response: 0x%x\n", desc.command_upiu.header.response);
+            printf("status: 0x%x\n", desc.command_upiu.header.status);
+            printf("EHS Length: 0x%x\n", desc.command_upiu.header.ehslength);
+            printf("Device Info: 0x%x\n", desc.command_upiu.header.deviceinfo);
+            printf("Data Length: 0x%x\n", desc.command_upiu.header.datalength);
+            // UFS_STD_READ_REQ
+            if(desc.command_upiu.header.function == 0x1)
+            {
+                printf("UFS_STD_READ_REQ function\n");
+                printf("[UFS] UFS Query Request\n");
+                printf("[UFS] TFS Dump:\n");
+                printf("Opcode: 0x%x\n", desc.command_upiu.tsf[0]);
+                printf("IDN: 0x%x\n", desc.command_upiu.tsf[1]);
+                printf("Index: 0x%x\n", desc.command_upiu.tsf[2]);
+                printf("Selector: 0x%x\n", desc.command_upiu.tsf[3]);
+                // Opcode UPIU_QUERY_OPCODE_READ_ATTR
+                if(desc.command_upiu.tsf[0] == 0x3)
+                {
+                    // IDN
+                    switch (desc.command_upiu.tsf[1])
+                    {
+                        case 0x0:
+                            printf("[UFS] UFS Query Request for bootlun enable\n");
+
+                            struct ufs_upiu *resp = &desc.response_upiu;
+                            memset(resp, 0, sizeof(*resp));
+
+                            resp->header.type     = 0x36;
+                            resp->header.flags    = 0x00;
+                            resp->header.lun      = desc.command_upiu.header.lun;
+                            resp->header.tag      = desc.command_upiu.header.tag;
+                            resp->header.cmdtype  = 0x00;
+                            resp->header.function = desc.command_upiu.header.function;
+                            resp->header.response = 0x00;
+                            resp->header.status   = 0x00;
+
+                            resp->tsf[0] = desc.command_upiu.tsf[0];
+                            resp->tsf[1] = desc.command_upiu.tsf[1];
+                            resp->tsf[2] = desc.command_upiu.tsf[2];
+                            resp->tsf[3] = desc.command_upiu.tsf[3];
+
+                            resp->tsf[8]  = 0x00;
+                            resp->tsf[9]  = 0x00;
+                            resp->tsf[10] = 0x00;
+                            resp->tsf[11] = 0x01;
+
+                            uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                            break;
+                        default:
+                            printf("[UFS] Unknown UFS Query Request IDN: 0x%x\n", desc.command_upiu.tsf[1]);
+                            break;
+                    }
+                }
+                // UPIU_QUERY_OPCODE_READ_DESC
+                else if (desc.command_upiu.tsf[0] == 1)
+                {
+                    printf("UPIU_QUERY_OPCODE_READ_DESC function\n");
+                    switch (desc.command_upiu.tsf[1])
+                    {
+                        case 0x0:
+                            printf("[UFS] UFS Query Request for device descriptor\n");
+                            break;
+                        case 0x1:
+                            printf("[UFS] UFS Query Request for configuration descriptor\n");
+                            break;
+                        case 0x2:
+                            printf("[UFS] UFS Query Request for unit descriptor\n");
+                            break;
+                        case 0x4:
+                            printf("[UFS] UFS Query Request for interconnect descriptor\n");
+                            break;
+                        case 0x5:
+                            printf("[UFS] UFS Query Request for string descriptor\n");
+                            break;
+                        case 0x7:
+                            printf("[UFS] UFS Query Request for geometry descriptor\n");
+                            break;
+                        case 0x8:
+                            printf("[UFS] UFS Query Request for power descriptor\n");
+                            break;
+                        default:
+                            printf("[UFS] Unknown UFS Query Request Descriptor: 0x%x\n", desc.command_upiu.tsf[1]);
+                            break;
+                    }
+                    while(1);
+                }
+            }
+
             utp_command_pending_completion = true;
             } else if (type == UC_MEM_READ && !utp_command_pending_completion) {
                 uc_mem_write(uc, 0x13100058, "\x0\x0\x0\x0", 4);

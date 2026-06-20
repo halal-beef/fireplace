@@ -19,53 +19,72 @@
 
 #include <unicorn/unicorn.h>
 
-struct ufs_utrd
-{
-  uint32_t dw[4];
-  uint32_t cmd_desc_addr_l;
-  uint32_t cmd_desc_addr_h;
-  uint16_t rsp_upiu_len;
-  uint16_t rsp_upiu_off;
-  uint16_t prdt_len;
-  uint16_t prdt_off;
-};
+#define ALIGNED_UPIU_SIZE	1024
+#define SCSI_MAX_SG_SEGMENTS	128
+#define DW_NUM_OF_TSF		20
 
-struct ufs_upiu_header
-{
-  uint8_t type;
-  uint8_t flags;
-  uint8_t lun;
-  uint8_t tag;
-  uint8_t cmd_type;
-  uint8_t function;
-  uint8_t response;
-  uint8_t status;
-  uint8_t ehs_length;
-  uint8_t device_info;
-  uint16_t data_length;
-};
+#define UPIU_DATA_SIZE		(ALIGNED_UPIU_SIZE - \
+		sizeof(uint8_t) * DW_NUM_OF_TSF - sizeof(struct ufs_upiu_header))
 
-struct ufs_upiu
-{
-  struct ufs_utrd utrd;
-  uint8_t tsf[20];
-  uint8_t data[1024 - 20 - sizeof(struct ufs_upiu_header)];
-};
 
-struct ufs_prdt
-{
-  uint32_t base_addr_l;
-  uint32_t base_addr_h;
-  uint32_t reserved;
-  uint32_t size;
-};
+struct ufs_upiu_header {
+	/* DW0 */
+	uint8_t type;		/* [7]HD, [6]DD, [5:0]Transaction Type : UFS1.1 HD/DD should '0' */
+	uint8_t flags;		/* Task Attribute : simple / ordered / head of queue */
+	uint8_t lun;
+	uint8_t tag;
 
-struct ufs_cmd_descriptor
-{
-  struct ufs_upiu command_upiu;
-  struct ufs_upiu response_upiu;
-  struct ufs_prdt prd_table[128];
-};
+	/* DW1 */
+	uint8_t cmdtype;		/* Command Set Type */
+	uint8_t function;		/* Query Function / Task Manag. Function */
+	uint8_t response;
+	uint8_t status;
+
+	/* DW2 */
+	uint8_t ehslength;		/* Total EHS length */
+	uint8_t deviceinfo;		/* Device Information */
+	uint16_t datalength;		/* Data Seqment Length (MSB|LSB) */
+} __attribute__ ((__packed__));
+
+struct ufs_upiu {
+	struct ufs_upiu_header header;
+	/* DW3 ~ DW7 */
+	uint8_t tsf[DW_NUM_OF_TSF];		/* Transaction Specific Fields */
+	uint8_t data[UPIU_DATA_SIZE];
+} __attribute__ ((__packed__));
+
+/*	Physical Region Descripton Table	*/
+struct ufs_prdt {
+	uint32_t base_addr;
+	uint32_t upper_addr;
+	uint32_t reserved;
+	uint32_t size;		/* MSB(reserved) : LSB(data byte count) */
+} __attribute__ ((__packed__));
+
+/*	UTP Command Descriptor	*/
+struct ufs_cmd_desc {
+	struct ufs_upiu command_upiu;
+	struct ufs_upiu response_upiu;
+	struct ufs_prdt prd_table[SCSI_MAX_SG_SEGMENTS];
+} __attribute__ ((__packed__));
+
+/*	UTP Transfer Request Descriptor	*/
+struct ufs_utrd {
+	/* DW 0-3 */
+	uint32_t dw[4];
+
+	/* DW 4-5 */
+	uint32_t cmd_desc_addr_l;
+	uint32_t cmd_desc_addr_h;
+
+	/* DW 6 */
+	uint16_t rsp_upiu_len;
+	uint16_t rsp_upiu_off;
+
+	/* DW 7 */
+	uint16_t prdt_len;
+	uint16_t prdt_off;
+} __attribute__ ((__packed__));
 
 int ufs_init(struct uc_struct*);
 void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_t value, void *user_data);
