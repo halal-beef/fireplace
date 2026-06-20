@@ -21,6 +21,8 @@
 
 #include <unicorn/unicorn.h>
 
+#include <fireplace/soc/ufs/ufs.h>
+
 uint32_t REG_UTP_TRANSFER_REQ_LIST_BASE_L = 0;
 uint32_t REG_UTP_TRANSFER_REQ_LIST_BASE_H = 0;
 
@@ -28,6 +30,7 @@ uint32_t arg1, arg2, arg3;
 uint32_t active_rx = 1, active_tx = 1;
 bool uic_command_pending_completion = false;
 bool utp_command_pending_completion = false;
+bool uic_command_needs_pms = false;
 
 #define UIC_CMD_DME_GET 1
 #define UIC_CMD_DME_SET 2
@@ -52,8 +55,18 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
             if (uic_command_pending_completion)
             {
                 // Complete with no errors
-                uc_mem_write(uc, 0x13100020, "\x0\x04\x0\x0", 4);
-                uic_command_pending_completion = false;
+                if (uic_command_needs_pms) {
+                    uint32_t hcs;
+                    uc_mem_read(uc, 0x13100030, &hcs, 4);
+                    hcs &= ~(0x7 << 8);
+                    hcs |=  (0x1 << 8);
+                    uc_mem_write(uc, 0x13100030, &hcs, 4);
+
+                    uc_mem_write(uc, 0x13100020, "\x10\x04\x00\x00", 4);
+                    uic_command_needs_pms = false;
+                } else {
+                    uc_mem_write(uc, 0x13100020, "\x00\x04\x00\x00", 4);
+                }
             }
 
             if(utp_command_pending_completion)
@@ -125,6 +138,14 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                 case UIC_CMD_DME_SET:
                     printf("[UFS] DME SET Command Issued\n");
                     printf("[UFS] DME SET arg1: 0x%llx, arg2: 0x%llx, arg3: 0x%llx\n", arg1, arg2, arg3);
+                    switch(arg1)
+                    {
+                        case 0x1571 << 16:
+                            printf("[UFS] PMC Stuff\n");
+                            uic_command_pending_completion = true;
+                            uic_command_needs_pms = true;
+                            break;
+                    }
                     // I wont lie to you i cannot be arsed to implement the whole cal.
                     uic_command_pending_completion = true;
                     break;
@@ -144,12 +165,6 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
         case 0x1310009c:
             printf("[UFS] UFS UIC_ARG3 Register Write: 0x%llx\n", value);
             arg3 = value;
-            break;
-        case 0x13101140:
-            if (!value)
-            {
-                printf("[UFS] NOP Command, prepare to end boot mode.\n");
-            }
             break;
         case 0x13101154:
         case 0x13101150:
@@ -178,13 +193,35 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                 printf("[UFS] Doorbell rung: 0x%llx\n", value);
 
             uint64_t utrd_addr = ((uint64_t)REG_UTP_TRANSFER_REQ_LIST_BASE_H << 32) | REG_UTP_TRANSFER_REQ_LIST_BASE_L;
-            uint32_t ocs_success = 0;
+            struct ufs_utrd utrd;
 
-            printf("[UFS] Set OCS Success at addr 0x%llx\n", utrd_addr + 8);
+            uc_mem_read(uc, utrd_addr, &utrd, sizeof(utrd));
 
-            uc_mem_write(uc, utrd_addr + 8, &ocs_success, 4);
+            printf("UTRD Dump:\n");
+            printf("dw[0]: 0x%x\n", utrd.dw[0]);
+            printf("dw[1]: 0x%x\n", utrd.dw[1]);
+            printf("dw[2]: 0x%x\n", utrd.dw[2]);
+            printf("dw[3]: 0x%x\n", utrd.dw[3]);
+            printf("cmd_desc_addr_l: 0x%x\n", utrd.cmd_desc_addr_l);
+            printf("cmd_desc_addr_h: 0x%x\n", utrd.cmd_desc_addr_h);
+            printf("rsp_upiu_len: 0x%x\n", utrd.rsp_upiu_len);
+            printf("rsp_upiu_off: 0x%x\n", utrd.rsp_upiu_off);
+            printf("prdt_len: 0x%x\n", utrd.prdt_len);
+            printf("prdt_off: 0x%x\n", utrd.prdt_off);
 
-                utp_command_pending_completion = true;
+            if (utrd.dw[0] == 0x0)
+            {
+                printf("[UFS] NOP, exiting boot mode.\n");
+            }
+            else if (utrd.dw[0] == 0x01000000)
+            {
+                printf("[UFS] UFS Command UTP_REQ_DESC_INT_CMD.\n");
+            }
+            printf("[UFS] Set OCS Success\n");
+            utrd.dw[2] = 0x0; // Set OCS to success
+            uc_mem_write(uc, utrd_addr, &utrd, sizeof(utrd));
+
+            utp_command_pending_completion = true;
             } else if (type == UC_MEM_READ && !utp_command_pending_completion) {
                 uc_mem_write(uc, 0x13100058, "\x0\x0\x0\x0", 4);
             }
