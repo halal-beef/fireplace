@@ -336,7 +336,80 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                     case 0:
                         printf("[UFS] NOP, exiting boot mode.\n");
                         break;
+
+                    case 0x3:
+                    {
+                        printf("[UFS] REQUEST_SENSE command received\n");
+
+                        uint8_t sense_data[18] = {0};
+                        sense_data[0] = 0x70;
+                        sense_data[2] = 0x00;
+                        sense_data[7] = 0x0A;
+                        sense_data[12] = 0x00;
+                        sense_data[13] = 0x00;
+
+                        uint64_t prdt_addr_rs = desc_addr + utrd.prdt_off;
+                        struct ufs_prdt prdt_entry_rs;
+                        uc_mem_read(uc, prdt_addr_rs, &prdt_entry_rs, sizeof(prdt_entry_rs));
+
+                        uint64_t sense_buf_addr = ((uint64_t)prdt_entry_rs.upper_addr << 32) | prdt_entry_rs.base_addr;
+                        uc_mem_write(uc, sense_buf_addr, sense_data, sizeof(sense_data));
+
+                        struct ufs_upiu *resp = &desc.response_upiu;
+                        memset(resp, 0, sizeof(*resp));
+                        resp->header.type = 0x21;
+                        resp->header.flags = 0x00;
+                        resp->header.lun = desc.command_upiu.header.lun;
+                        resp->header.tag = desc.command_upiu.header.tag;
+                        resp->header.cmdtype  = 0x00;
+                        resp->header.function = 0x00;
+                        resp->header.response = 0x00;
+                        resp->header.status = 0x00;
+                        resp->header.datalength = sizeof(sense_data);
+
+                        uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                        break;
+                    }
+
+                case 0x12: {
+                    printf("[UFS] INQUIRY command received\n");
+
+                    uint8_t inq_data[36] = {0};
+                    inq_data[0] = 0x00;
+                    inq_data[1] = 0x00;
+                    inq_data[2] = 0x06;
+                    inq_data[3] = 0x02;
+                    inq_data[4] = 0x1F;
+                    inq_data[5] = 0x00;
+                    inq_data[6] = 0x00;
+                    inq_data[7] = 0x00;
+
+                    memcpy(&inq_data[8],  "HALAL   ", 8);
+                    memcpy(&inq_data[16], "BEEF            ", 16);
+                    memcpy(&inq_data[32], "1.00", 4);
+
+                    uint64_t prdt_addr_inq = desc_addr + utrd.prdt_off;
+                    struct ufs_prdt prdt_entry_inq;
+                    uc_mem_read(uc, prdt_addr_inq, &prdt_entry_inq, sizeof(prdt_entry_inq));
+
+                    uint64_t inq_buf_addr = ((uint64_t)prdt_entry_inq.upper_addr << 32) | prdt_entry_inq.base_addr;
+                    uc_mem_write(uc, inq_buf_addr, inq_data, sizeof(inq_data));
+
+                    struct ufs_upiu *resp = &desc.response_upiu;
+                    memset(resp, 0, sizeof(*resp));
+                    resp->header.type = 0x21;
+                    resp->header.lun = desc.command_upiu.header.lun;
+                    resp->header.tag = desc.command_upiu.header.tag;
+                    resp->header.response = 0x00;
+                    resp->header.status = 0x00;
+                    resp->header.datalength = sizeof(inq_data);
+
+                    uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                    break;
+                }
+
                     case 0x25:
+                    {
                         printf("[UFS] READ_CAPACITY command received for LU%d\n", desc.command_upiu.header.lun);
                         
                         uint32_t last_lba, block_size;
@@ -372,7 +445,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                         
                         struct ufs_upiu *resp = &desc.response_upiu;
                         memset(resp, 0, sizeof(*resp));
-                        resp->header.type = 0x24;
+                        resp->header.type = 0x21;
                         resp->header.flags = 0x00;
                         resp->header.lun = lun;
                         resp->header.tag = desc.command_upiu.header.tag;
@@ -384,6 +457,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                         
                         uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
                         break;
+                    }
                 }
             }
             utp_command_pending_completion = true;
