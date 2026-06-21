@@ -343,6 +343,34 @@ void hook_print(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
     uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
 }
 
+void hook_hardware_rng(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    printf("Hardware RNG called\n");
+    uint64_t val_ptr, val_len, lr;
+
+    uc_reg_read(uc, UC_ARM64_REG_X0, &val_ptr);
+    uc_reg_read(uc, UC_ARM64_REG_X1, &val_len);
+    uc_reg_read(uc, UC_ARM64_REG_X30, &lr);
+
+    uint8_t buf[val_len];
+
+    for (uint64_t i = 0; i < val_len; i++)
+        buf[i] = rand() & 0xFF;
+
+    uc_mem_write(uc, val_ptr, buf, val_len);
+
+    uint64_t ret = 0;
+    uc_reg_write(uc, UC_ARM64_REG_X0, &ret);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_return(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr;
+    uc_reg_read(uc, UC_ARM64_REG_X30, &lr);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
 int soc_peripherals_init(uc_engine *uc)
 {
 	int err = 0;
@@ -361,5 +389,9 @@ int soc_peripherals_init(uc_engine *uc)
     //uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_smc, NULL, 1, 0);
 	uc_hook_add(uc, &trace, UC_HOOK_MEM_INVALID, (void*)mem_invalid_cb, NULL, 1, 0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hardware_rng, NULL, 0xe8014390, 0xe8014390);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80b8580, 0xe80b8580);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8012f10, 0xe8012f10);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8085050, 0xe8085050);
 	return err;
 }

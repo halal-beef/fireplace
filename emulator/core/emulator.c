@@ -65,6 +65,26 @@ static inline void do_image_patches(uc_engine *uc)
 	if ((err = uc_mem_write(uc, 0xe8013180, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
 		printf("ERROR PATCHING USB Boot: %s\n", uc_strerror(err));
 
+	// Patch ECDSA Sign checks to return success.
+	if ((err = uc_mem_write(uc, 0xe80873d8, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING USB Boot: %s\n", uc_strerror(err));
+
+	// Patch KEYSTORAGE Initialisation to return success.
+	if ((err = uc_mem_write(uc, 0xe80131c0, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING KEYSTORAGE Init: %s\n", uc_strerror(err));
+
+	// Patch SSP Initialisation to return success.
+	if ((err = uc_mem_write(uc, 0xe80132a8, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING SSP Init: %s\n", uc_strerror(err));
+
+	// Patch LDFW Initialisation to return success.
+	if ((err = uc_mem_write(uc, 0xe8012e80, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING LDFW Init: %s\n", uc_strerror(err));
+
+	// Patch SPayload Initialisation to return success.
+	if ((err = uc_mem_write(uc, 0xe80135a0, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING SPayload Init: %s\n", uc_strerror(err));
+
 
 //	printf("Setting up T32 Fuse Magic.\n");
 //	if ((err = uc_mem_write(uc, 0x80000000, "\xca\xcc\x26\x66", 4)) != UC_ERR_OK)
