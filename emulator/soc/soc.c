@@ -87,28 +87,14 @@ void pcset_add(PCSet *set, uint64_t pc) {
     }
     set->pcs[set->count++] = pc;
 }
-
+bool ready_to_trace = false;
 void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
 {
-    static PCSet pcset;
-    static int initialized = 0;
-
-    if (!initialized) {
-        pcset_init(&pcset);
-        initialized = 1;
-    }
-
-    uint64_t pc;
-    uc_reg_read(uc, UC_ARM64_REG_PC, &pc);
-
-    if (!pcset_contains(&pcset, pc)) {
-        printf("[+] PC = 0x%" PRIx64 "\n", pc);
-        pcset_add(&pcset, pc);
-    }
-
-    if (pc == 0xe802a108)
+    if(ready_to_trace)
     {
-        printf("Entering UFS Initialization\n");
+        uint64_t lr;
+        uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+        printf("[HOOK] Executing instruction at 0x%llx, lr = 0x%llx\n", address, lr);
     }
 }
 
@@ -367,7 +353,131 @@ void hook_hardware_rng(uc_engine *uc, uint64_t address, uint32_t size, void *use
 void hook_return(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
 {
     uint64_t lr;
-    uc_reg_read(uc, UC_ARM64_REG_X30, &lr);
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_revision(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t val = 22;
+    uint64_t lr;
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_mem_write(uc, 0xe8154008, &val, sizeof(val));
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_unlock_status(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    bool val = false;
+    uint64_t val_ptr, lr, ret = 0;
+    uc_reg_read(uc, UC_ARM64_REG_X0, &val_ptr);
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_mem_write(uc, val_ptr, &val, sizeof(val));
+    uc_reg_write(uc, UC_ARM64_REG_X0, &ret);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+    printf("hook_unlock_status called, ptr to out_unlock: 0x%llx\n", val_ptr);
+}
+
+void hook_get_warranty_bit(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr, val = 1;
+
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_something_return_one(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr, val = 1;
+
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_something_return_zero(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr, val = 0;
+
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_hyp_calls(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr;
+    uint64_t x[5];
+
+    uc_reg_read(uc, UC_ARM64_REG_X0, &x[0]);
+    uc_reg_read(uc, UC_ARM64_REG_X1, &x[1]);
+    uc_reg_read(uc, UC_ARM64_REG_X2, &x[2]);
+    uc_reg_read(uc, UC_ARM64_REG_X3, &x[3]);
+    uc_reg_read(uc, UC_ARM64_REG_X4, &x[4]);
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+
+    printf("Hypervisor was attempted to be called with x0=0x%llx, x1=0x%llx, x2=0x%llx, x3=0x%llx, x4=0x%llx\n", x[0], x[1], x[2], x[3], x[4]);
+
+    if(x[0] == 0xc6000010)
+    {
+        int val = 1;
+        printf("H-ARX Plugin registration attempted.\n");
+        uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+    }
+
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_exynos_smc_calls(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr;
+    uint64_t x[5];
+
+    uc_reg_read(uc, UC_ARM64_REG_X0, &x[0]);
+    uc_reg_read(uc, UC_ARM64_REG_X1, &x[1]);
+    uc_reg_read(uc, UC_ARM64_REG_X2, &x[2]);
+    uc_reg_read(uc, UC_ARM64_REG_X3, &x[3]);
+    uc_reg_read(uc, UC_ARM64_REG_X4, &x[4]);
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+
+    printf("Exynos SMC was attempted to be called with x0=0x%llx, x1=0x%llx, x2=0x%llx, x3=0x%llx, x4=0x%llx\n", x[0], x[1], x[2], x[3], x[4]);
+    if(x[0] == 0x82000480)
+    {
+        printf("Exynos SMC: SMC_CMD_HARX_INITIALIZATION, ret 0\n");
+        uint64_t val = 0;
+        uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+        ready_to_trace = false;
+    }
+    else if (x[0] == 0xc200101d)
+    {
+        printf("Exynos SMC: SMC Read VBMETA Pub key, ret 0\n");
+        uint64_t val = 0;
+        uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+        ready_to_trace = false;
+    }
+    else if (x[0] == 0xfffffffffffffed2 && x[1] == 0x0)
+    {
+        printf("Exynos SMC: Get SOC Info\n");
+        uint64_t val = 0x66001000;
+        uc_reg_write(uc, UC_ARM64_REG_X0, &val);
+    }
+
+    uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+}
+
+void hook_avb_pubkey_compare(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t lr, ptr_val;
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+    uc_reg_read(uc, UC_ARM64_REG_X5, &ptr_val);
+
+    printf("AVB Public Key Compare called\n");
+
+    uint64_t val = 0; // Return 0 to indicate keys match
+    uint8_t pubkey_comp_ret = 0;
+    uc_mem_write(uc, ptr_val, &pubkey_comp_ret, sizeof(pubkey_comp_ret));
+    uc_reg_write(uc, UC_ARM64_REG_X0, &val);
     uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
 }
 
@@ -386,7 +496,7 @@ int soc_peripherals_init(uc_engine *uc)
 
 	uc_hook trace;
 	uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_print, NULL, 0xe80dee98, 0xe80dee98); // start = 1, end = 0 -> entire range
-    //uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_code, NULL, 1, 0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_smc, NULL, 1, 0);
 	uc_hook_add(uc, &trace, UC_HOOK_MEM_INVALID, (void*)mem_invalid_cb, NULL, 1, 0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hardware_rng, NULL, 0xe8014390, 0xe8014390);
@@ -394,5 +504,24 @@ int soc_peripherals_init(uc_engine *uc)
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8012f10, 0xe8012f10);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8085050, 0xe8085050);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80b8850, 0xe80b8850);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8013f60, 0xe8013f60);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80858b8, 0xe80858b8);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_revision, NULL, 0xe8001948, 0xe8001948);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_unlock_status, NULL, 0xe8027240, 0xe8027240);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_get_warranty_bit, NULL, 0xe80858a8, 0xe80858a8);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_one, NULL, 0xe808b480, 0xe808b480);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80138e8, 0xe80138e8);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe8013de0, 0xe8013de0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe8014010, 0xe8014010);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80140c8, 0xe80140c8);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe8014180, 0xe8014180);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe8014230, 0xe8014230);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe8013ea0, 0xe8013ea0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80142e0, 0xe80142e0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80147b0, 0xe80147b0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hyp_calls, NULL, 0xe8001e58, 0xe8001e58);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hyp_calls, NULL, 0xe80e8e30, 0xe80e8e30);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_exynos_smc_calls, NULL, 0xe8012e38, 0xe8012e38);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_avb_pubkey_compare, NULL, 0xe80b4290, 0xe80b4290);
 	return err;
 }

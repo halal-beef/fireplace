@@ -47,6 +47,8 @@ struct memory_mapping exynos990_12gb_memory[] = {
 	{ 0xFD900000, 0x00200000, UC_PROT_ALL  },
 	/* RAM block 3 */
 	{ 0xFDB00000, 0x02500000, UC_PROT_ALL   },
+	/* RAM block 4 */
+	{ 0x880000000, 0x280000000, UC_PROT_ALL },
 	/* End of 32-bit address space. */
 	{ 0x00000000, 0x00000000, UC_PROT_NONE  },
 };
@@ -67,7 +69,7 @@ int memmap_soc(uc_engine *uc, enum board_memory_type board)
 		map = exynos990_12gb_memory[i];
 
 		// TODO: Change this to 64-bit when mapping 64-bit address space!
-		printf("Mapping memory: A: 0x%x L: 0x%x\n", map.base, map.size);
+		printf("Mapping memory: A: 0x%llx L: 0x%llx\n", map.base, map.size);
 
 		ret = uc_mem_map(uc, map.base, map.size, map.perms);
 		uc_handle_error("Failed to map memory!", ret);

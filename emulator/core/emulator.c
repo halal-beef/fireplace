@@ -88,6 +88,10 @@ static inline void do_image_patches(uc_engine *uc)
 	if ((err = uc_mem_write(uc, 0xe8002538, "\x80\x00\x80\x52", 4)) != UC_ERR_OK)
 		printf("ERROR PATCHING do_download arg: %s\n", uc_strerror(err));
 
+	// NOP Some TRNG stuff.
+	if ((err = uc_mem_write(uc, 0xe80182d8, "\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING TRNG: %s\n", uc_strerror(err));
+
 	// Spoof battery voltage
 	printf("Spoofing battery voltage to 3.86v\n");
 	// LMFAO
@@ -105,14 +109,14 @@ static inline void do_image_patches(uc_engine *uc)
 //		printf("T32 Fuse Magic Set Failed: %s\n", uc_strerror(err));
 
 
-	printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
+	/*printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
 
 	uint32_t val = (0x12345600 | 0x1);
 
         if ((err = uc_mem_write(uc, 0x15860000 + 0x80c, &val, 4)) != UC_ERR_OK)
-                printf("ERROR: %\n", uc_strerror(err));
+                printf("ERROR: %s\n", uc_strerror(err));
 
-	val = 0x4e0000;
+	val = 0x4e0000;*/
 }
 
 /*

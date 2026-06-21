@@ -475,10 +475,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                     printf("[UFS] READ_10 command received for LU%d, LBA %u, Blocks %u\n", lun, lba, transfer_blocks);
 
                     char path[64];
-                    if (lun != 0)
-                        snprintf(path, 64, "/home/umer/lun_dumps/lun%d.img", lun);
-                    else
-                        snprintf(path, 64, "/home/umer/lun_dumps/lun0.img");
+                    snprintf(path, 64, "/home/umer/lun_dumps/lun%d.img", lun);
                     FILE *f = fopen(path, "rb");
                     if (!f) {
                         printf("[UFS] Could not open %s\n", path);
@@ -499,6 +496,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                     if (nread != total_bytes) {
                         printf("[UFS] Short read: got %zu, expected %u\n", nread, total_bytes);
                         memset(buf + nread, 0, total_bytes - nread);
+                        while(1);
                     }
 
                     uint64_t prdt_addr_r10 = desc_addr + utrd.prdt_off;
