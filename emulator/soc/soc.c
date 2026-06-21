@@ -481,6 +481,25 @@ void hook_avb_pubkey_compare(uc_engine *uc, uint64_t address, uint32_t size, voi
     uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
 }
 
+void hook_sbl_set_bootm(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    uint64_t x[3];
+    uint64_t lr;
+
+    uc_reg_read(uc, UC_ARM64_REG_X0, &x[0]);
+    uc_reg_read(uc, UC_ARM64_REG_X1, &x[1]);
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+
+    printf("SBL Set Boot Mode called x0=0x%llx x1=0x%llx lr=0x%llx\n", x[0], x[1], lr);
+    if(x[0] == 0x80000)
+    {
+        printf("Boot mode was attempted to be set to Recovery, ignore.");
+        uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
+    }
+}
+
+
+
 int soc_peripherals_init(uc_engine *uc)
 {
 	int err = 0;
@@ -506,6 +525,7 @@ int soc_peripherals_init(uc_engine *uc)
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80b8850, 0xe80b8850);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8013f60, 0xe8013f60);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80858b8, 0xe80858b8);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe1902210, 0xe1902210); // lk3rd horrors
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_revision, NULL, 0xe8001948, 0xe8001948);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_unlock_status, NULL, 0xe8027240, 0xe8027240);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_get_warranty_bit, NULL, 0xe80858a8, 0xe80858a8);
@@ -519,9 +539,13 @@ int soc_peripherals_init(uc_engine *uc)
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe8013ea0, 0xe8013ea0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80142e0, 0xe80142e0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80147b0, 0xe80147b0);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe801cf28, 0xe801cf28);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe1903f20, 0xe1903f20); // lk3rd horrors
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hyp_calls, NULL, 0xe8001e58, 0xe8001e58);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hyp_calls, NULL, 0xe80e8e30, 0xe80e8e30);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_exynos_smc_calls, NULL, 0xe8012e38, 0xe8012e38);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_exynos_smc_calls, NULL, 0xe1904840, 0xe1904840); // lk3rd horrors
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_avb_pubkey_compare, NULL, 0xe80b4290, 0xe80b4290);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_sbl_set_bootm, NULL, 0xe807da58, 0xe807da58);
 	return err;
 }

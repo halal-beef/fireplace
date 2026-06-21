@@ -67,13 +67,18 @@ struct exynos_gpio_bank {
 	uint8_t res1[8];
 };
 
+#define BANK_CON(base)      (base)
+#define BANK_DAT(base)      (base + 0x4)
+#define BANK_PULL(base)     (base + 0x8)
+#define BANK_DRV(base)      (base + 0xc)
+
 /* Functions */
-void exynos_gpio_cfg_pin(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio, int cfg);
-void exynos_gpio_direction_output(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio, int en);
-void exynos_gpio_direction_input(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio);
-void exynos_gpio_set_value(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio, int en);
-uint32_t exynos_gpio_get_value(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio);
-void exynos_gpio_set_pull(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio, int mode);
-void exynos_gpio_set_drv(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio, int mode);
-void exynos_gpio_set_rate(uc_engine *uc_s, struct exynos_gpio_bank *bank, int gpio, int mode);
+void exynos_gpio_cfg_pin(uc_engine *uc_s, uint64_t bank_base, int gpio, int cfg);
+void exynos_gpio_direction_output(uc_engine *uc_s, uint64_t bank_base, int gpio, int en);
+void exynos_gpio_direction_input(uc_engine *uc_s, uint64_t bank_base, int gpio);
+void exynos_gpio_set_value(uc_engine *uc, uint64_t bank_base, int gpio, int en);
+uint32_t exynos_gpio_get_value(struct uc_struct *uc_s, uint64_t bank_base, int gpio);
+void exynos_gpio_set_pull(uc_engine *uc_s, uint64_t bank_base, int gpio, int mode);
+void exynos_gpio_set_drv(uc_engine *uc_s, uint64_t bank_base, int gpio, int mode);
+void exynos_gpio_set_rate(uc_engine *uc_s, uint64_t bank_base, int gpio, int mode);
 #endif

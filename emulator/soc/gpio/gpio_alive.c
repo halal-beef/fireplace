@@ -27,8 +27,8 @@
 
 pthread_mutex_t gpio_alive_lock = PTHREAD_MUTEX_INITIALIZER;
 
-struct exynos_gpio_bank *bank_volume = (struct exynos_gpio_bank *)EXYNOS9830_GPA0CON;
-struct exynos_gpio_bank *bank_power = (struct exynos_gpio_bank *)EXYNOS9830_GPA2CON;
+#define BANK_VOLUME (uint64_t)EXYNOS9830_GPA0CON
+#define BANK_POWER (uint64_t)EXYNOS9830_GPA2CON
 
 int keys[3] = {1, 1, 1};
 
@@ -38,19 +38,19 @@ int gpio_alive_init(struct uc_struct *uc_s)
 	printf("= initializing button pins...\n");
 
 	/* Setup pullups */
-	exynos_gpio_set_pull(uc_s, bank_volume, 3, GPIO_PULL_UP);
-	exynos_gpio_set_pull(uc_s, bank_volume, 4, GPIO_PULL_UP);
-	exynos_gpio_set_pull(uc_s, bank_power, 4, GPIO_PULL_UP);
+	exynos_gpio_set_pull(uc_s, BANK_VOLUME, 3, GPIO_PULL_UP);
+	exynos_gpio_set_pull(uc_s, BANK_VOLUME, 4, GPIO_PULL_UP);
+	exynos_gpio_set_pull(uc_s, BANK_POWER, 4, GPIO_PULL_UP);
 
 	/* Pins are buttons, so input. */
-	exynos_gpio_cfg_pin(uc_s, bank_volume, 3, GPIO_INPUT);
-	exynos_gpio_cfg_pin(uc_s, bank_volume, 4, GPIO_INPUT);
-	exynos_gpio_cfg_pin(uc_s, bank_power, 4, GPIO_INPUT);
+	exynos_gpio_cfg_pin(uc_s, BANK_VOLUME, 3, GPIO_INPUT);
+	exynos_gpio_cfg_pin(uc_s, BANK_VOLUME, 4, GPIO_INPUT);
+	exynos_gpio_cfg_pin(uc_s, BANK_POWER, 4, GPIO_INPUT);
 
 	/* Set initial GPIO values. */
-	exynos_gpio_set_value(uc_s, bank_volume, 3, 1);
-	exynos_gpio_set_value(uc_s, bank_volume, 4, 1);
-	exynos_gpio_set_value(uc_s, bank_power, 4, 0);
+	exynos_gpio_set_value(uc_s, BANK_VOLUME, 3, 1);
+	exynos_gpio_set_value(uc_s, BANK_VOLUME, 4, 1);
+	exynos_gpio_set_value(uc_s, BANK_POWER, 4, 1);
 
 	printf("= intialized button pins!\n");
 	return 0;
@@ -62,9 +62,9 @@ void gpio_alive_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size
 
 	if(type == UC_MEM_READ)
 	{
-		exynos_gpio_set_value(uc, bank_volume, 3, keys[VOL_UP]);
-		exynos_gpio_set_value(uc, bank_volume, 4, keys[VOL_DOWN]);
-		exynos_gpio_set_value(uc, bank_power, 3, keys[POWER]);
+		exynos_gpio_set_value(uc, BANK_VOLUME, 3, keys[VOL_UP]);
+		exynos_gpio_set_value(uc, BANK_VOLUME, 4, keys[VOL_DOWN]);
+		exynos_gpio_set_value(uc, BANK_POWER, 4, keys[POWER]);
 	}
 
 	pthread_mutex_unlock(&gpio_alive_lock);

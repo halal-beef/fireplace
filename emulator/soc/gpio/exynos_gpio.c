@@ -23,125 +23,86 @@
 
 #include <fireplace/soc/gpio/exynos_gpio.h>
 
-void exynos_gpio_dat_mask(struct exynos_gpio_bank *bank, unsigned int *dat) // Unused on 9830
+void exynos_gpio_cfg_pin(uc_engine *uc, uint64_t bank_base, int gpio, int cfg)
 {
+    uint32_t value;
+    uc_mem_read(uc, BANK_CON(bank_base), &value, sizeof(value));
+    value &= ~CON_MASK(gpio);
+    value |= CON_SFR(gpio, cfg);
+    uc_mem_write(uc, BANK_CON(bank_base), &value, sizeof(value));
 }
 
-static inline unsigned long exynos_gpio_base(int nr) // Unused on 9830
+void exynos_gpio_direction_output(uc_engine *uc, uint64_t bank_base, int gpio, int en)
 {
-	return 0;
+    uint32_t value;
+    exynos_gpio_cfg_pin(uc, bank_base, gpio, GPIO_OUTPUT);
+    uc_mem_read(uc, BANK_DAT(bank_base), &value, sizeof(value));
+    value &= ~DAT_MASK(gpio);
+    if (en)
+        value |= DAT_SET(gpio);
+    uc_mem_write(uc, BANK_DAT(bank_base), &value, sizeof(value));
 }
 
-void exynos_gpio_cfg_pin(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio, int cfg)
+void exynos_gpio_direction_input(uc_engine *uc, uint64_t bank_base, int gpio)
 {
-	uint32_t value;
-
-	uc_mem_read(uc_s, (uint64_t)&bank->con, &value, sizeof(value));
-	value &= ~CON_MASK(gpio);
-	value |= CON_SFR(gpio, cfg);
-	uc_mem_write(uc_s, (uint64_t)&bank->con, &value, sizeof(value));
+    exynos_gpio_cfg_pin(uc, bank_base, gpio, GPIO_INPUT);
 }
 
-void exynos_gpio_direction_output(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio, int en)
+void exynos_gpio_set_value(uc_engine *uc, uint64_t bank_base, int gpio, int en)
 {
-	uint32_t value;
-
-	exynos_gpio_cfg_pin(uc_s, bank, gpio, GPIO_OUTPUT);
-
-	uc_mem_read(uc_s, (uint64_t)&bank->dat, &value, sizeof(value));
-	value &= ~DAT_MASK(gpio);
-	if (en)
-		value |= DAT_SET(gpio);
-	exynos_gpio_dat_mask(bank, &value);
-	uc_mem_write(uc_s, (uint64_t)&bank->dat, &value, sizeof(value));
+    uint32_t value;
+    uc_mem_read(uc, BANK_DAT(bank_base), &value, sizeof(value));
+    value &= ~DAT_MASK(gpio);
+    if (en)
+        value |= DAT_SET(gpio);
+    uc_mem_write(uc, BANK_DAT(bank_base), &value, sizeof(value));
 }
 
-void exynos_gpio_direction_input(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio)
+uint32_t exynos_gpio_get_value(uc_engine *uc, uint64_t bank_base, int gpio)
 {
-	exynos_gpio_cfg_pin(uc_s, bank, gpio, GPIO_INPUT);
+    uint32_t value;
+    uc_mem_read(uc, BANK_DAT(bank_base), &value, sizeof(value));
+    return !!(value & DAT_MASK(gpio));
 }
 
-void exynos_gpio_set_value(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio, int en)
+void exynos_gpio_set_pull(uc_engine *uc, uint64_t bank_base, int gpio, int mode)
 {
-	uint32_t value;
-
-	uc_mem_read(uc_s, (uint64_t)&bank->dat, &value, sizeof(value));
-	value &= ~DAT_MASK(gpio);
-	if (en)
-		value |= DAT_SET(gpio);
-	exynos_gpio_dat_mask(bank, &value);
-	uc_mem_write(uc_s, (uint64_t)&bank->dat, &value, sizeof(value));
+    uint32_t value;
+    uc_mem_read(uc, BANK_PULL(bank_base), &value, sizeof(value));
+    value &= ~PULL_MASK(gpio);
+    switch (mode) {
+    case GPIO_PULL_NONE:
+    case GPIO_PULL_DOWN:
+    case GPIO_PULL_UP:
+        value |= PULL_MODE(gpio, mode);
+        break;
+    default:
+        break;
+    }
+    uc_mem_write(uc, BANK_PULL(bank_base), &value, sizeof(value));
 }
 
-uint32_t exynos_gpio_get_value(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio)
+void exynos_gpio_set_drv(uc_engine *uc, uint64_t bank_base, int gpio, int mode)
 {
-	uint32_t value;
-
-	uc_mem_read(uc_s, (uint64_t)&bank->dat, &value, sizeof(value));
-	return !!(value & DAT_MASK(gpio));
+    uint32_t value;
+    uc_mem_read(uc, BANK_DRV(bank_base), &value, sizeof(value));
+    value &= ~DRV_MASK(gpio);
+    value |= DRV_SET(gpio, mode);
+    uc_mem_write(uc, BANK_DRV(bank_base), &value, sizeof(value));
 }
 
-void exynos_gpio_set_pull(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio, int mode)
+void exynos_gpio_set_rate(uc_engine *uc, uint64_t bank_base, int gpio, int mode)
 {
-	uint32_t value;
-
-	uc_mem_read(uc_s, (uint64_t)&bank->pull, &value, sizeof(value));
-	value &= ~PULL_MASK(gpio);
-
-	switch (mode) {
-	case GPIO_PULL_NONE:
-	case GPIO_PULL_DOWN:
-	case GPIO_PULL_UP:
-		value |= PULL_MODE(gpio, mode);
-		break;
-	default:
-		break;
-	}
-
-	uc_mem_write(uc_s, (uint64_t)&bank->pull, &value, sizeof(value));
-}
-
-void exynos_gpio_set_drv(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio, int mode)
-{
-	uint32_t value;
-
-	uc_mem_read(uc_s, (uint64_t)&bank->drv, &value, sizeof(value));
-	value &= ~DRV_MASK(gpio);
-
-	value |= DRV_SET(gpio, mode);
-
-	uc_mem_write(uc_s, (uint64_t)&bank->drv, &value, sizeof(value));
-}
-
-void exynos_gpio_set_rate(struct uc_struct *uc_s, struct exynos_gpio_bank *bank, int gpio, int mode)
-{
-	uint32_t value;
-
-	uc_mem_read(uc_s, (uint64_t)&bank->drv, &value, sizeof(value));
-	value &= ~RATE_MASK(gpio);
-
-	switch (mode) {
-	case GPIO_DRV_FAST:
-	case GPIO_DRV_SLOW:
-		value |= RATE_SET(gpio);
-		break;
-	default:
-		return;
-	}
-
-	uc_mem_write(uc_s, (uint64_t)&bank->drv, &value, sizeof(value));
-}
-
-struct exynos_gpio_bank *exynos_gpio_get_bank(unsigned gpio)
-{
-	int bank = gpio / GPIO_PER_BANK;
-
-	bank *= sizeof(struct exynos_gpio_bank);
-
-	return (struct exynos_gpio_bank *)(exynos_gpio_base(gpio) + bank);
-}
-
-int exynos_gpio_get_pin(unsigned gpio)
-{
-	return gpio % GPIO_PER_BANK;
+    uint32_t value;
+    uc_mem_read(uc, BANK_DRV(bank_base), &value, sizeof(value));
+    value &= ~RATE_MASK(gpio);
+    switch (mode) {
+    case GPIO_DRV_FAST:
+    case GPIO_DRV_SLOW:
+        value |= RATE_SET(gpio);
+        break;
+    default:
+        return;
+    }
+    uc_mem_write(uc, BANK_DRV(bank_base), &value, sizeof(value));
 }

@@ -92,6 +92,10 @@ static inline void do_image_patches(uc_engine *uc)
 	if ((err = uc_mem_write(uc, 0xe80182d8, "\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 8)) != UC_ERR_OK)
 		printf("ERROR PATCHING TRNG: %s\n", uc_strerror(err));
 
+	// Bypass installment balance thing
+	if ((err = uc_mem_write(uc, 0xe8086668, "\x20\x00\x80\x52", 4)) != UC_ERR_OK)
+		printf("ERROR PATCHING INSTALLMENT BALANCE: %s\n", uc_strerror(err));
+
 	// Spoof battery voltage
 	printf("Spoofing battery voltage to 3.86v\n");
 	// LMFAO
@@ -202,7 +206,7 @@ static inline int emulator_init(void)
 
 	printf("=== All good! Starting emulator! ===\n");
 	atomic_store(&sharedState, STATE_RUNNING);
-	err = uc_emu_start(uc, INT_BIN_ADDR, end, 0, 10000000000);
+	err = uc_emu_start(uc, INT_BIN_ADDR, 0, 0, 10000000000);
 
 	int pc;
 
