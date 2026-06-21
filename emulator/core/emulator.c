@@ -61,6 +61,10 @@ static inline void do_image_patches(uc_engine *uc)
 	if ((err = uc_mem_write(uc, 0xe8003b38, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
 		printf("ERROR PATCHING Post Gear Change: %s\n", uc_strerror(err));
 
+	// Patch USB Boot check to return false.
+	if ((err = uc_mem_write(uc, 0xe8013180, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
+		printf("ERROR PATCHING USB Boot: %s\n", uc_strerror(err));
+
 
 //	printf("Setting up T32 Fuse Magic.\n");
 //	if ((err = uc_mem_write(uc, 0x80000000, "\xca\xcc\x26\x66", 4)) != UC_ERR_OK)
