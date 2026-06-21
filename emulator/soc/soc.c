@@ -393,5 +393,6 @@ int soc_peripherals_init(uc_engine *uc)
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80b8580, 0xe80b8580);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8012f10, 0xe8012f10);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe8085050, 0xe8085050);
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_return, NULL, 0xe80b8850, 0xe80b8850);
 	return err;
 }

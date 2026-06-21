@@ -85,20 +85,34 @@ static inline void do_image_patches(uc_engine *uc)
 	if ((err = uc_mem_write(uc, 0xe80135a0, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
 		printf("ERROR PATCHING SPayload Init: %s\n", uc_strerror(err));
 
+	if ((err = uc_mem_write(uc, 0xe8002538, "\x80\x00\x80\x52", 4)) != UC_ERR_OK)
+		printf("ERROR PATCHING do_download arg: %s\n", uc_strerror(err));
+
+	// Spoof battery voltage
+	printf("Spoofing battery voltage to 3.86v\n");
+	// LMFAO
+    if ((err = uc_mem_write(uc, 0xe80b91a0, "\x80\xe2\x81\x52\xc0\x03\x5f\xd6\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 32)) != UC_ERR_OK)
+            printf("ERROR SPOOFING BATTERY VOLTAGE: %s\n", uc_strerror(err));
+
+	// Spoof battery percentage
+	printf("Spoofing battery percentage to 100%\n");
+    // LMFAO  
+    if ((err = uc_mem_write(uc, 0xe80b9180, "\x80\x0c\x80\x52\xc0\x03\x5f\xd6\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5\x1f\x20\x03\xd5", 28)) != UC_ERR_OK)
+            printf("ERROR SPOOFING BATTERY PERCENTAGE: %s\n", uc_strerror(err));
 
 //	printf("Setting up T32 Fuse Magic.\n");
 //	if ((err = uc_mem_write(uc, 0x80000000, "\xca\xcc\x26\x66", 4)) != UC_ERR_OK)
 //		printf("T32 Fuse Magic Set Failed: %s\n", uc_strerror(err));
 
 
-/*	printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
+	printf("FORCING DOWNLOAD MODE VIA PMU SPOOF!\n");
 
 	uint32_t val = (0x12345600 | 0x1);
 
         if ((err = uc_mem_write(uc, 0x15860000 + 0x80c, &val, 4)) != UC_ERR_OK)
                 printf("ERROR: %\n", uc_strerror(err));
 
-	val = 0x4e0000;*/
+	val = 0x4e0000;
 }
 
 /*

@@ -38,7 +38,27 @@ void fb_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_
 
 	size_t offset = address - FB_ADDRESS;
 
-	if (size == 4)
+	if (size == 8)
+	{
+		uint8_t b1 = value & 0xFF;
+		uint8_t g1 = (value >> 8) & 0xFF;
+		uint8_t r1 = (value >> 16) & 0xFF;
+		uint8_t a1 = (value >> 24) & 0xFF;
+		uint8_t b2 = (value >> 32) & 0xFF;
+		uint8_t g2 = (value >> 40) & 0xFF;
+		uint8_t r2 = (value >> 48) & 0xFF;
+		uint8_t a2 = (value >> 56) & 0xFF;
+
+		framebuffer[offset] = r1;
+		framebuffer[offset + 1] = g1;
+		framebuffer[offset + 2] = b1;
+		framebuffer[offset + 3] = a1;
+		framebuffer[offset + 4] = r2;
+		framebuffer[offset + 5] = g2;
+		framebuffer[offset + 6] = b2;
+		framebuffer[offset + 7] = a2;
+	}
+	else if (size == 4)
 	{
         	uint8_t b = value & 0xFF;
         	uint8_t g = (value >> 8) & 0xFF;
@@ -52,7 +72,7 @@ void fb_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_
 	}
 	else
 	{
-        	// Fallback for smaller writes
+        // Fallback for smaller writes
 		for (int i = 0; i < size; i++) {
 			framebuffer[offset + i] = (value >> (i * 8)) & 0xFF;
 		}
