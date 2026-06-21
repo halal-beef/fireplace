@@ -197,6 +197,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
 
             uc_mem_read(uc, utrd_addr, &utrd, sizeof(utrd));
 
+#ifdef UFS_DEBUG
             printf("UTRD Dump:\n");
             printf("dw[0]: 0x%x\n", utrd.dw[0]);
             printf("dw[1]: 0x%x\n", utrd.dw[1]);
@@ -208,7 +209,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
             printf("rsp_upiu_off: 0x%x\n", utrd.rsp_upiu_off);
             printf("prdt_len: 0x%x\n", utrd.prdt_len);
             printf("prdt_off: 0x%x\n", utrd.prdt_off);
-
+#endif
             printf("[UFS] Set OCS Success\n");
             utrd.dw[2] = 0x0; // Set OCS to success
             uc_mem_write(uc, utrd_addr, &utrd, sizeof(utrd));
@@ -216,6 +217,7 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
             uint64_t desc_addr = ((uint64_t)utrd.cmd_desc_addr_h << 32) | utrd.cmd_desc_addr_l;
             struct ufs_cmd_desc desc;
             uc_mem_read(uc, desc_addr, &desc, sizeof(desc));
+#ifdef UFS_DEBUG
             printf("[UFS] Command Descriptor Dump:\n");
             printf("Command UPIU Header:\n");
             printf("type: 0x%x\n", desc.command_upiu.header.type);
@@ -229,16 +231,19 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
             printf("EHS Length: 0x%x\n", desc.command_upiu.header.ehslength);
             printf("Device Info: 0x%x\n", desc.command_upiu.header.deviceinfo);
             printf("Data Length: 0x%x\n", desc.command_upiu.header.datalength);
+#endif
             // UFS_STD_READ_REQ
             if(desc.command_upiu.header.function == 0x1)
             {
                 printf("UFS_STD_READ_REQ function\n");
                 printf("[UFS] UFS Query Request\n");
+#ifdef UFS_DEBUG
                 printf("[UFS] TFS Dump:\n");
                 printf("Opcode: 0x%x\n", desc.command_upiu.tsf[0]);
                 printf("IDN: 0x%x\n", desc.command_upiu.tsf[1]);
                 printf("Index: 0x%x\n", desc.command_upiu.tsf[2]);
                 printf("Selector: 0x%x\n", desc.command_upiu.tsf[3]);
+#endif
                 // Opcode UPIU_QUERY_OPCODE_READ_ATTR
                 if(desc.command_upiu.tsf[0] == 0x3)
                 {
@@ -408,62 +413,131 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                     break;
                 }
 
-                    case 0x25:
-                    {
-                        printf("[UFS] READ_CAPACITY command received for LU%d\n", desc.command_upiu.header.lun);
-                        
-                        uint32_t last_lba, block_size;
-                        uint8_t lun = desc.command_upiu.header.lun;
-                        uint8_t response_data[8];
-                        uint64_t prdt_addr = desc_addr + utrd.prdt_off;
-                        struct ufs_prdt prdt_entry;
+                case 0x25:
+                {
+                    printf("[UFS] READ_CAPACITY command received for LU%d\n", desc.command_upiu.header.lun);
+                    
+                    uint32_t last_lba, block_size;
+                    uint8_t lun = desc.command_upiu.header.lun;
+                    uint8_t response_data[8];
+                    uint64_t prdt_addr = desc_addr + utrd.prdt_off;
+                    struct ufs_prdt prdt_entry;
 
-                        if (lun < 8) {
-                            last_lba = lu_capacities[lun].last_lba - 1;
-                            block_size = lu_capacities[lun].block_size - 1;
-                        } else {
-                            last_lba = 0;
-                            block_size = 0x1000;
-                        }
+                    if (lun < 8) {
+                        last_lba = lu_capacities[lun].last_lba - 1;
+                        block_size = lu_capacities[lun].block_size;
+                    } else {
+                        last_lba = 0;
+                        block_size = 0x1000;
+                    }
 
-                        printf("[UFS] LU%d: last_lba=%u, block_size=%u\n", lun, last_lba, block_size);
+                    printf("[UFS] LU%d: last_lba=%u, block_size=%u\n", lun, last_lba, block_size);
 
-                        response_data[0] = (uint8_t)((last_lba >> 24) & 0xFF);
-                        response_data[1] = (uint8_t)((last_lba >> 16) & 0xFF);
-                        response_data[2] = (uint8_t)((last_lba >> 8) & 0xFF);
-                        response_data[3] = (uint8_t)(last_lba & 0xFF);
-                        response_data[4] = (uint8_t)((block_size >> 24) & 0xFF);
-                        response_data[5] = (uint8_t)((block_size >> 16) & 0xFF);
-                        response_data[6] = (uint8_t)((block_size >> 8) & 0xFF);
-                        response_data[7] = (uint8_t)(block_size & 0xFF);
+                    response_data[0] = (uint8_t)((last_lba >> 24) & 0xFF);
+                    response_data[1] = (uint8_t)((last_lba >> 16) & 0xFF);
+                    response_data[2] = (uint8_t)((last_lba >> 8) & 0xFF);
+                    response_data[3] = (uint8_t)(last_lba & 0xFF);
+                    response_data[4] = (uint8_t)((block_size >> 24) & 0xFF);
+                    response_data[5] = (uint8_t)((block_size >> 16) & 0xFF);
+                    response_data[6] = (uint8_t)((block_size >> 8) & 0xFF);
+                    response_data[7] = (uint8_t)(block_size & 0xFF);
 
-                        uc_mem_read(uc, prdt_addr, &prdt_entry, sizeof(prdt_entry));
+                    uc_mem_read(uc, prdt_addr, &prdt_entry, sizeof(prdt_entry));
 
-                        uint64_t data_addr = ((uint64_t)prdt_entry.upper_addr << 32) | prdt_entry.base_addr;
+                    uint64_t data_addr = ((uint64_t)prdt_entry.upper_addr << 32) | prdt_entry.base_addr;
 
-                        uc_mem_write(uc, data_addr, response_data, 8);
-                        
-                        struct ufs_upiu *resp = &desc.response_upiu;
-                        memset(resp, 0, sizeof(*resp));
-                        resp->header.type = 0x21;
-                        resp->header.flags = 0x00;
-                        resp->header.lun = lun;
-                        resp->header.tag = desc.command_upiu.header.tag;
-                        resp->header.cmdtype  = 0x00;
-                        resp->header.function = 0x00;
-                        resp->header.response = 0x00;
-                        resp->header.status = 0;
-                        resp->header.datalength = 8;
-                        
-                        uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                    uc_mem_write(uc, data_addr, response_data, 8);
+                    
+                    struct ufs_upiu *resp = &desc.response_upiu;
+                    memset(resp, 0, sizeof(*resp));
+                    resp->header.type = 0x21;
+                    resp->header.flags = 0x00;
+                    resp->header.lun = lun;
+                    resp->header.tag = desc.command_upiu.header.tag;
+                    resp->header.cmdtype  = 0x00;
+                    resp->header.function = 0x00;
+                    resp->header.response = 0x00;
+                    resp->header.status = 0;
+                    resp->header.datalength = 8;
+                    
+                    uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                    break;
+                }
+
+                case 0x28:
+                {
+                    uint8_t lun = desc.command_upiu.header.lun;
+                    uint32_t lba = ((uint32_t)desc.command_upiu.tsf[6] << 24) | ((uint32_t)desc.command_upiu.tsf[7] << 16) | ((uint32_t)desc.command_upiu.tsf[8] << 8)  | ((uint32_t)desc.command_upiu.tsf[9]);
+                    uint16_t transfer_blocks = ((uint16_t)desc.command_upiu.tsf[11] << 8) | ((uint16_t)desc.command_upiu.tsf[12]);
+                    uint32_t total_bytes = transfer_blocks * 4096;
+                    uint64_t file_offset = (uint64_t)lba * 4096;
+
+                    printf("[UFS] READ_10 command received for LU%d, LBA %u, Blocks %u\n", lun, lba, transfer_blocks);
+
+                    char path[64];
+                    if (lun != 0)
+                        snprintf(path, 64, "/home/umer/lun_dumps/lun%d.img", lun);
+                    else
+                        snprintf(path, 64, "/home/umer/lun_dumps/lun0.img");
+                    FILE *f = fopen(path, "rb");
+                    if (!f) {
+                        printf("[UFS] Could not open %s\n", path);
                         break;
                     }
+
+                    uint8_t *buf = malloc(total_bytes);
+                    if (!buf) {
+                        printf("[UFS] malloc failed for %u bytes\n", total_bytes);
+                        fclose(f);
+                        break;
+                    }
+
+                    fseek(f, file_offset, SEEK_SET);
+                    size_t nread = fread(buf, 1, total_bytes, f);
+                    fclose(f);
+
+                    if (nread != total_bytes) {
+                        printf("[UFS] Short read: got %zu, expected %u\n", nread, total_bytes);
+                        memset(buf + nread, 0, total_bytes - nread);
+                    }
+
+                    uint64_t prdt_addr_r10 = desc_addr + utrd.prdt_off;
+                    uint32_t bytes_remaining = total_bytes;
+                    uint32_t buf_offset = 0;
+
+                    for (int i = 0; bytes_remaining > 0; i++) {
+                        struct ufs_prdt prdt_entry;
+                        uc_mem_read(uc, prdt_addr_r10 + i * sizeof(prdt_entry), &prdt_entry, sizeof(prdt_entry));
+
+                        uint64_t data_addr = ((uint64_t)prdt_entry.upper_addr << 32) | prdt_entry.base_addr;
+                        uint32_t chunk = prdt_entry.size + 1;
+                        if (chunk > bytes_remaining) chunk = bytes_remaining;
+
+                        uc_mem_write(uc, data_addr, buf + buf_offset, chunk);
+                        buf_offset += chunk;
+                        bytes_remaining -= chunk;
+                    }
+
+                    free(buf);
+
+                    struct ufs_upiu *resp = &desc.response_upiu;
+                    memset(resp, 0, sizeof(*resp));
+                    resp->header.type = 0x21;
+                    resp->header.lun = lun;
+                    resp->header.tag = desc.command_upiu.header.tag;
+                    resp->header.response = 0x00;
+                    resp->header.status = 0x00;
+                    resp->header.datalength = 0;
+
+                    uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                    break;
                 }
             }
-            utp_command_pending_completion = true;
-            } else if (type == UC_MEM_READ && !utp_command_pending_completion) {
-                uc_mem_write(uc, 0x13100058, "\x0\x0\x0\x0", 4);
-            }
+        }
+        utp_command_pending_completion = true;
+        } else if (type == UC_MEM_READ && !utp_command_pending_completion) {
+            uc_mem_write(uc, 0x13100058, "\x0\x0\x0\x0", 4);
+        }
         break;
     }
 }

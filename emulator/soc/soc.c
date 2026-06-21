@@ -114,6 +114,12 @@ void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
 
 static bool mem_invalid_cb(uc_engine *uc, uc_mem_type type,
                            uint64_t address, int size, int64_t value, void *user_data) {
+    uint64_t pc, lr;
+    uc_reg_read(uc, UC_ARM64_REG_PC, &pc);
+    uc_reg_read(uc, UC_ARM64_REG_LR, &lr);
+
+    printf("PC: 0x%llx, LR: 0x%llx\n", pc, lr);
+
     switch (type) {
         case UC_MEM_READ_UNMAPPED:
             printf("[!] Invalid memory READ at 0x%" PRIx64 " (size: %d bytes)\n", address, size);
@@ -336,7 +342,6 @@ void hook_print(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
     /* emulate return */
     uc_reg_write(uc, UC_ARM64_REG_PC, &lr);
 }
-
 
 int soc_peripherals_init(uc_engine *uc)
 {
