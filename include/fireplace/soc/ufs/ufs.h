@@ -86,6 +86,215 @@ struct ufs_utrd {
 	uint16_t prdt_off;
 } __attribute__ ((__packed__));
 
+struct ufs_unit_desc {
+	uint8_t bLength;		/* offset : 0x00 */
+	uint8_t bDescriptorType;
+	uint8_t bUnitIndex;
+	uint8_t bLUEnable;
+	uint8_t bBootLunID;
+
+	uint8_t bLUWriteProtect;
+	uint8_t bLUQueueDepth;
+	uint8_t Reserved;
+	uint8_t bMemoryType;		/* offset : 0x08 */
+	uint8_t bDataReliability;
+
+	uint8_t bLogicalBlockSize;
+	uint32_t qLogicalBlockCount_h;
+	uint32_t qLogicalBlockCount_l;
+	uint32_t dEraseBlockSize;	/* offset : 0x13 */
+	uint8_t bProvisioningType;
+	uint32_t qPhyMemResourceCount_h;	/* offset : 0x18 */
+	uint32_t qPhyMemResourceCount_l;
+	uint16_t wContextCapabilities;	/* offset : 0x20 */
+	uint8_t bLargeUnitSize_M1;
+};
+
+typedef struct {
+    uint32_t last_lba;
+    uint32_t block_size;
+} lu_capacity_t;
+
+
+static lu_capacity_t lu_capacities[8] = {
+    { .last_lba = 31234048, .block_size = 4096 },
+    { .last_lba = 1024, .block_size = 4096 },
+    { .last_lba = 1024, .block_size = 4096 },
+	{ .last_lba = 2048, .block_size = 4096 },
+	{ .last_lba = 4096, .block_size = 4096 }
+};
+
+static struct ufs_unit_desc unit_descriptor[8] = {
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x00,
+        .bLUEnable = 0x02,
+        .bBootLunID = 0x00,
+        .bLUWriteProtect = 0x00,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x00,
+        .bDataReliability = 0x00,
+        .bLogicalBlockSize = 0x0C,
+        .qLogicalBlockCount_h = 0x01000000,
+        .qLogicalBlockCount_l = 0x000098DC,
+        .dEraseBlockSize = 0x02010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x0098DC01,
+        .qPhyMemResourceCount_l = 0x10000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x01,
+        .bLUEnable = 0x01,
+        .bBootLunID = 0x01,
+        .bLUWriteProtect = 0x01,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x03,
+        .bDataReliability = 0x01,
+        .bLogicalBlockSize = 0x0C,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 0x00000400,
+        .dEraseBlockSize = 0x02010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00040000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x02,
+        .bLUEnable = 0x01,
+        .bBootLunID = 0x02,
+        .bLUWriteProtect = 0x01,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x03,
+        .bDataReliability = 0x01,
+        .bLogicalBlockSize = 0x0C,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 0x00000400,
+        .dEraseBlockSize = 0x02010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00040000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x03,
+        .bLUEnable = 0x01,
+        .bBootLunID = 0x00,
+        .bLUWriteProtect = 0x01,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x00,
+        .bDataReliability = 0x00,
+        .bLogicalBlockSize = 0x0C,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 0x00000800,
+        .dEraseBlockSize = 0x02010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00080000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x04,
+        .bLUEnable = 0x01,
+        .bBootLunID = 0x00,
+        .bLUWriteProtect = 0x01,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x00,
+        .bDataReliability = 0x00,
+        .bLogicalBlockSize = 0x0C,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 4096,
+        .dEraseBlockSize = 0x02010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00100000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x05,
+        .bLUEnable = 0x00,
+        .bBootLunID = 0x00,
+        .bLUWriteProtect = 0x00,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x00,
+        .bDataReliability = 0x00,
+        .bLogicalBlockSize = 0x00,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 0x00000000,
+        .dEraseBlockSize = 0x00010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00000000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x06,
+        .bLUEnable = 0x00,
+        .bBootLunID = 0x00,
+        .bLUWriteProtect = 0x00,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x00,
+        .bDataReliability = 0x00,
+        .bLogicalBlockSize = 0x00,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 0x00000000,
+        .dEraseBlockSize = 0x00010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00000000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+    {
+        .bLength = 0x2D,
+        .bDescriptorType = 0x02,
+        .bUnitIndex = 0x07,
+        .bLUEnable = 0x00,
+        .bBootLunID = 0x00,
+        .bLUWriteProtect = 0x00,
+        .bLUQueueDepth = 0x00,
+        .Reserved = 0x00,
+        .bMemoryType = 0x00,
+        .bDataReliability = 0x00,
+        .bLogicalBlockSize = 0x00,
+        .qLogicalBlockCount_h = 0x00000000,
+        .qLogicalBlockCount_l = 0x00000000,
+        .dEraseBlockSize = 0x00010000,
+        .bProvisioningType = 0x00,
+        .qPhyMemResourceCount_h = 0x00000000,
+        .qPhyMemResourceCount_l = 0x00000000,
+        .wContextCapabilities = 0x0000,
+        .bLargeUnitSize_M1 = 0x00,
+    },
+};
+
 int ufs_init(struct uc_struct*);
 void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_t value, void *user_data);
 

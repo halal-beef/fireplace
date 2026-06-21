@@ -209,14 +209,6 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
             printf("prdt_len: 0x%x\n", utrd.prdt_len);
             printf("prdt_off: 0x%x\n", utrd.prdt_off);
 
-            if (utrd.dw[0] == 0x0)
-            {
-                printf("[UFS] NOP, exiting boot mode.\n");
-            }
-            else if (utrd.dw[0] == 0x01000000)
-            {
-                printf("[UFS] UFS Command UTP_REQ_DESC_INT_CMD.\n");
-            }
             printf("[UFS] Set OCS Success\n");
             utrd.dw[2] = 0x0; // Set OCS to success
             uc_mem_write(uc, utrd_addr, &utrd, sizeof(utrd));
@@ -259,14 +251,14 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                             struct ufs_upiu *resp = &desc.response_upiu;
                             memset(resp, 0, sizeof(*resp));
 
-                            resp->header.type     = 0x36;
-                            resp->header.flags    = 0x00;
-                            resp->header.lun      = desc.command_upiu.header.lun;
-                            resp->header.tag      = desc.command_upiu.header.tag;
+                            resp->header.type = 0x36;
+                            resp->header.flags = 0x00;
+                            resp->header.lun = desc.command_upiu.header.lun;
+                            resp->header.tag = desc.command_upiu.header.tag;
                             resp->header.cmdtype  = 0x00;
                             resp->header.function = desc.command_upiu.header.function;
                             resp->header.response = 0x00;
-                            resp->header.status   = 0x00;
+                            resp->header.status = 0x00;
 
                             resp->tsf[0] = desc.command_upiu.tsf[0];
                             resp->tsf[1] = desc.command_upiu.tsf[1];
@@ -299,6 +291,24 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                             break;
                         case 0x2:
                             printf("[UFS] UFS Query Request for unit descriptor\n");
+
+                            struct ufs_upiu *resp = &desc.response_upiu;
+                            uint32_t resp_data_len = sizeof(struct ufs_unit_desc);
+
+                            memset(resp, 0, sizeof(*resp));
+
+                            if (desc.command_upiu.tsf[2] >= 8) {
+                                printf("[UFS] Unit descriptor index %d out of range\n", desc.command_upiu.tsf[2]);
+                                resp->header.response = 0x01; 
+                                break;
+                            }
+                            printf("[UFS] Reading Unit Descriptor for LU %d\n", desc.command_upiu.tsf[2]);
+                            memcpy(resp->data, &unit_descriptor[desc.command_upiu.tsf[2]], sizeof(struct ufs_unit_desc));
+
+                            resp->tsf[8] = (uint8_t)((resp_data_len >> 24) & 0xFF);
+                            resp->tsf[9] = (uint8_t)((resp_data_len >> 16) & 0xFF);
+                            resp->tsf[10] = (uint8_t)((resp_data_len >> 8) & 0xFF);
+                            resp->tsf[11] = (uint8_t)(resp_data_len & 0xFF);
                             break;
                         case 0x4:
                             printf("[UFS] UFS Query Request for interconnect descriptor\n");
@@ -316,10 +326,66 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                             printf("[UFS] Unknown UFS Query Request Descriptor: 0x%x\n", desc.command_upiu.tsf[1]);
                             break;
                     }
-                    while(1);
                 }
             }
+            else if (desc.command_upiu.header.function == 0)
+            {
+                printf("[UFS] Scsi command received, opcode: 0x%x\n", desc.command_upiu.tsf[4]);
+                switch(desc.command_upiu.tsf[4])
+                {
+                    case 0:
+                        printf("[UFS] NOP, exiting boot mode.\n");
+                        break;
+                    case 0x25:
+                        printf("[UFS] READ_CAPACITY command received for LU%d\n", desc.command_upiu.header.lun);
+                        
+                        uint32_t last_lba, block_size;
+                        uint8_t lun = desc.command_upiu.header.lun;
+                        uint8_t response_data[8];
+                        uint64_t prdt_addr = desc_addr + utrd.prdt_off;
+                        struct ufs_prdt prdt_entry;
 
+                        if (lun < 8) {
+                            last_lba = lu_capacities[lun].last_lba - 1;
+                            block_size = lu_capacities[lun].block_size - 1;
+                        } else {
+                            last_lba = 0;
+                            block_size = 0x1000;
+                        }
+
+                        printf("[UFS] LU%d: last_lba=%u, block_size=%u\n", lun, last_lba, block_size);
+
+                        response_data[0] = (uint8_t)((last_lba >> 24) & 0xFF);
+                        response_data[1] = (uint8_t)((last_lba >> 16) & 0xFF);
+                        response_data[2] = (uint8_t)((last_lba >> 8) & 0xFF);
+                        response_data[3] = (uint8_t)(last_lba & 0xFF);
+                        response_data[4] = (uint8_t)((block_size >> 24) & 0xFF);
+                        response_data[5] = (uint8_t)((block_size >> 16) & 0xFF);
+                        response_data[6] = (uint8_t)((block_size >> 8) & 0xFF);
+                        response_data[7] = (uint8_t)(block_size & 0xFF);
+
+                        uc_mem_read(uc, prdt_addr, &prdt_entry, sizeof(prdt_entry));
+
+                        uint64_t data_addr = ((uint64_t)prdt_entry.upper_addr << 32) | prdt_entry.base_addr;
+
+                        uc_mem_write(uc, data_addr, response_data, 8);
+                        
+                        struct ufs_upiu *resp = &desc.response_upiu;
+                        memset(resp, 0, sizeof(*resp));
+                        resp->header.type = 0x24;
+                        resp->header.flags = 0x00;
+                        resp->header.lun = lun;
+                        resp->header.tag = desc.command_upiu.header.tag;
+                        resp->header.cmdtype  = 0x00;
+                        resp->header.function = 0x00;
+                        resp->header.response = 0x00;
+                        resp->header.status = 0;
+                        resp->header.datalength = 8;
+                        
+                        uc_mem_write(uc, desc_addr, &desc, sizeof(desc));
+                        break;
+                }
+            }
             utp_command_pending_completion = true;
             } else if (type == UC_MEM_READ && !utp_command_pending_completion) {
                 uc_mem_write(uc, 0x13100058, "\x0\x0\x0\x0", 4);
