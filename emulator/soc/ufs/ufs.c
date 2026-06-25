@@ -188,6 +188,15 @@ void ufs_hook(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64
                 printf("[UFS] REG_UTP_TRANSFER_REQ_LIST_BASE_H Value: 0x%x\n", REG_UTP_TRANSFER_REQ_LIST_BASE_H);
             }
             break;
+        case 0x13104000 + (0xCE4 + 0x800 * 0):
+        case 0x13104000 + (0xCE4 + 0x800 * 1):
+        case 0x13104000 + (0xCE4 + 0x800 * 2):
+            if (type == UC_MEM_READ) {
+                uint32_t val = 0x08;
+                printf("[UFS] CDR Lock wait poll");
+                uc_mem_write(uc, address, &val, 4);
+            }
+            break;
         case 0x13100058:
             if (type == UC_MEM_WRITE && value) {
                 printf("[UFS] Doorbell rung: 0x%llx\n", value);

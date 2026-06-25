@@ -540,11 +540,10 @@ int soc_peripherals_init(uc_engine *uc)
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80142e0, 0xe80142e0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe80147b0, 0xe80147b0);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe801cf28, 0xe801cf28);
-    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_something_return_zero, NULL, 0xe1903f20, 0xe1903f20); // lk3rd horrors
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hyp_calls, NULL, 0xe8001e58, 0xe8001e58);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_hyp_calls, NULL, 0xe80e8e30, 0xe80e8e30);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_exynos_smc_calls, NULL, 0xe8012e38, 0xe8012e38);
-    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_exynos_smc_calls, NULL, 0xe1904840, 0xe1904840); // lk3rd horrors
+    uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_exynos_smc_calls, NULL, 0xe19046a0, 0xe19046a0); // lk3rd horrors
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_avb_pubkey_compare, NULL, 0xe80b4290, 0xe80b4290);
     uc_hook_add(uc, &trace, UC_HOOK_CODE, hook_sbl_set_bootm, NULL, 0xe807da58, 0xe807da58);
 	return err;

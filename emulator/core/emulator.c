@@ -57,10 +57,6 @@ static inline void do_image_patches(uc_engine *uc)
     if ((err = uc_mem_write(uc, 0xe801a568, "\xc0\x03\x5f\xd6", 4)) != UC_ERR_OK)
             printf("ERROR PATCHING infinite loop: %s\n", uc_strerror(err));
 
-	// Patch Post Gear Change to return success, i cant be bothered emulating ufs THAT far.
-	if ((err = uc_mem_write(uc, 0xe8003b38, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
-		printf("ERROR PATCHING Post Gear Change: %s\n", uc_strerror(err));
-
 	// Patch USB Boot check to return false.
 	if ((err = uc_mem_write(uc, 0xe8013180, "\x00\x00\x80\x52\xc0\x03\x5f\xd6", 8)) != UC_ERR_OK)
 		printf("ERROR PATCHING USB Boot: %s\n", uc_strerror(err));
